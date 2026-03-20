@@ -34,6 +34,7 @@ class AppConfig:
     include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1000
+    ocr_engine: str = "paddle"  # "paddle" or "winocr"
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         """儲存設定到 JSON 檔案。"""
@@ -59,6 +60,7 @@ class AppConfig:
                 include_all_stats=data.get("include_all_stats", False),
                 potential_region=Region(**data.get("potential_region", {})),
                 delay_ms=data.get("delay_ms", 1000),
+                ocr_engine=data.get("ocr_engine", "paddle"),
             )
         except (json.JSONDecodeError, TypeError, KeyError):
             logger.exception("設定檔格式錯誤，使用預設值: %s", path)
