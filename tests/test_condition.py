@@ -670,10 +670,10 @@ class TestConditionCheckerCustomSummary:
         )
         lines = generate_condition_summary(config)
         assert len(lines) == 3
-        assert "STR%" in lines[0]
-        assert ">= 5" in lines[0]
-        assert "DEX%" in lines[1]
-        assert "全屬性%" in lines[2]
+        assert "第1排" in lines[0]
+        assert "STR 至少 5%" in lines[0]
+        assert "DEX 至少 3%" in lines[1]
+        assert "全屬性 至少 2%" in lines[2]
 
     def test_custom_summary_passive(self):
         from app.core.condition import generate_condition_summary
@@ -688,3 +688,112 @@ class TestConditionCheckerCustomSummary:
         )
         lines = generate_condition_summary(config)
         assert "被動技能2" in lines[2]
+        assert "第3排" in lines[2]
+
+    def test_custom_summary_with_all_stats(self):
+        from app.core.condition import generate_condition_summary
+
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 9, include_all_stats=True),
+            ],
+        )
+        lines = generate_condition_summary(config)
+        assert len(lines) == 1
+        assert "STR 至少 9%" in lines[0]
+        assert "全屬性 至少 9%" in lines[0]
+
+
+class TestConditionCheckerCustomIncludeAllStats:
+    """自訂模式含全屬性測試"""
+
+    def test_include_all_stats_accepts_all_stats(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 7, include_all_stats=True),
+                LineCondition("STR", 7, include_all_stats=True),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("全屬性%", 7),
+        ]
+        assert checker.check(lines) is True
+
+    def test_include_all_stats_rejects_low_value(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 7, include_all_stats=True),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is False
+
+    def test_without_include_all_stats_rejects_all_stats(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 7, include_all_stats=False),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("全屬性%", 9),
+        ]
+        assert checker.check(lines) is False
+
+
+class TestConditionCheckerDynamicRows:
+    """自訂模式動態排數測試"""
+
+    def test_single_row(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 5)],
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9)]
+        assert checker.check(lines) is True
+
+    def test_single_row_fail(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 5)],
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 4)]
+        assert checker.check(lines) is False
+
+    def test_two_rows(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+        ]
+        assert checker.check(lines) is True
+
+    def test_two_rows_not_enough_lines(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9)]
+        assert checker.check(lines) is False

@@ -74,5 +74,20 @@ class TestConfigSaveLoad:
         path.write_text('{"cube_type": "絕對附加方塊"}')
         config = AppConfig.load(path)
         assert config.use_preset is True
-        assert len(config.custom_lines) == 3
+        assert len(config.custom_lines) == 1
         assert config.custom_lines[0].attribute == "STR"
+
+    def test_custom_lines_include_all_stats(self, tmp_path: Path):
+        """include_all_stats 應正確存取。"""
+        path = tmp_path / "config.json"
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 9, include_all_stats=True),
+                LineCondition("DEX", 7),
+            ],
+        )
+        config.save(path)
+        loaded = AppConfig.load(path)
+        assert loaded.custom_lines[0].include_all_stats is True
+        assert loaded.custom_lines[1].include_all_stats is False

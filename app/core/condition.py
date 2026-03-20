@@ -237,10 +237,12 @@ def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
     lines = []
     for i, lc in enumerate(custom_lines):
         if lc.attribute == "被動技能2":
-            lines.append(f"第{i+1}行: 被動技能2（依照被動技能 2 來增加）")
+            lines.append(f"第{i+1}排: 被動技能2（依照被動技能 2 來增加）")
         else:
-            ocr_key = _attr_to_ocr_key(lc.attribute)
-            lines.append(f"第{i+1}行: {ocr_key} >= {lc.min_value}")
+            parts = [f"{lc.attribute} 至少 {lc.min_value}%"]
+            if lc.include_all_stats:
+                parts.append(f"全屬性 至少 {lc.min_value}%")
+            lines.append(f"第{i+1}排: {' 或 '.join(parts)}")
     return lines
 
 
@@ -267,29 +269,22 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
 
     (s_val, r_val), all_stats_thresholds = thresholds
     is_glove = equip in GLOVE_TYPES
-    target_key = _attr_to_ocr_key(attr)
 
     # 萌獸：三排同屬性，不分 S潛/罕見
     if equip == "萌獸":
-        return [f"三排 {target_key} >= {s_val}"]
+        return [f"三排: {attr} 至少 {s_val}%"]
 
-    lines = []
-    for i in range(3):
-        is_legendary = (i == 0)
-        min_val = s_val if is_legendary else r_val
-        parts = [f"{target_key} >= {min_val}"]
+    # 精簡一行格式
+    parts = [f"三排 {attr} 至少 {s_val}%/{r_val}%"]
 
-        if include_all and all_stats_thresholds:
-            all_min = all_stats_thresholds[0] if is_legendary else all_stats_thresholds[1]
-            parts.append(f"全屬性% >= {all_min}")
+    if include_all and all_stats_thresholds:
+        all_s, all_r = all_stats_thresholds
+        parts.append(f"全屬性 至少 {all_s}%/{all_r}%")
 
-        if is_glove:
-            parts.append("爆擊傷害% == 3")
+    if is_glove:
+        parts.append("爆擊傷害 至少 3%")
 
-        tier = "S潛" if is_legendary else "罕見"
-        lines.append(f"第{i+1}行({tier}): {' 或 '.join(parts)}")
-
-    return lines
+    return [" 或 ".join(parts)]
 
 
 class ConditionChecker:
@@ -330,10 +325,11 @@ class ConditionChecker:
             self._all_s, self._all_r = 0, 0
 
     def check(self, lines: list[PotentialLine]) -> bool:
-        """三行都符合才回傳 True。"""
+        """所有行都符合才回傳 True。"""
         if not self._valid:
             return False
-        if len(lines) < 3:
+        required = len(self._custom_lines) if not self._use_preset else 3
+        if len(lines) < required:
             return False
 
         if not self._use_preset:
@@ -359,16 +355,22 @@ class ConditionChecker:
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
         """自訂模式：每行用對應的 custom_lines[i] 比對。"""
-        for i in range(3):
-            lc = self._custom_lines[i]
+        for i, lc in enumerate(self._custom_lines):
             line = lines[i]
             if lc.attribute == "被動技能2":
                 if line.attribute != "被動技能2":
                     return False
             else:
                 target_key = _attr_to_ocr_key(lc.attribute)
-                if line.attribute != target_key or line.value < lc.min_value:
-                    return False
+                if lc.include_all_stats:
+                    # 接受目標屬性或全屬性
+                    ok = (line.attribute == target_key and line.value >= lc.min_value) or \
+                         (line.attribute == "全屬性%" and line.value >= lc.min_value)
+                    if not ok:
+                        return False
+                else:
+                    if line.attribute != target_key or line.value < lc.min_value:
+                        return False
         return True
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:

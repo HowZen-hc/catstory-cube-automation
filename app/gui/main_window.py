@@ -1,5 +1,6 @@
 import logging
 
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -94,6 +95,8 @@ class MainWindow(QMainWindow):
     def _load_config_to_ui(self) -> None:
         self.settings_panel.load_from_config(self.config)
         self.condition_editor.load_from_config(self.config)
+        # 手動觸發萌獸方塊連動（避免 combo 未改變不觸發 signal）
+        self.condition_editor.on_cube_type_changed(self.config.cube_type)
 
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
@@ -138,6 +141,15 @@ class MainWindow(QMainWindow):
     def _on_worker_finished(self) -> None:
         self._set_running_ui(False)
         self.status_bar.showMessage(f"已停止，共洗 {self._roll_count} 次")
+        # 紅色「已停止」提示 2 秒
+        self.btn_start.setText("■ 已停止")
+        self.btn_start.setStyleSheet("background-color: #e53935; color: white;")
+        QTimer.singleShot(2000, self._restore_start_btn)
+
+    def _restore_start_btn(self) -> None:
+        """恢復開始按鈕為正常狀態。"""
+        self.btn_start.setText("▶ 開始")
+        self.btn_start.setStyleSheet("")
 
     def _set_running_ui(self, running: bool) -> None:
         """切換執行/停止狀態的 UI。"""
