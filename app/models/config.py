@@ -25,25 +25,17 @@ class Region:
 
 
 @dataclass
-class TargetCondition:
-    """單行目標潛能條件。"""
-
-    line_index: int  # 第幾行（0, 1, 2）
-    attribute: str  # 屬性名稱，"任意" 表示不限
-    operator: str = ">="  # >=, =, contains
-    value: int = 0
-
-
-@dataclass
 class AppConfig:
     """應用程式設定。"""
 
     cube_type: str = "珍貴"  # 珍貴, 絕對, 萌獸, 恢復
+    equipment_type: str = "永恆裝備·光輝套裝 (250+)"
+    target_attribute: str = "STR"
+    include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
     button_region: Region = field(default_factory=Region)
     delay_ms: int = 500
     hotkey: str = "F9"
-    conditions: list[TargetCondition] = field(default_factory=list)
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         """儲存設定到 JSON 檔案。"""
@@ -64,14 +56,13 @@ class AppConfig:
             data = json.loads(path.read_text(encoding="utf-8"))
             return cls(
                 cube_type=data.get("cube_type", "珍貴"),
+                equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250+)"),
+                target_attribute=data.get("target_attribute", "STR"),
+                include_all_stats=data.get("include_all_stats", False),
                 potential_region=Region(**data.get("potential_region", {})),
                 button_region=Region(**data.get("button_region", {})),
                 delay_ms=data.get("delay_ms", 500),
                 hotkey=data.get("hotkey", "F9"),
-                conditions=[
-                    TargetCondition(**c)
-                    for c in data.get("conditions", [])
-                ],
             )
         except (json.JSONDecodeError, TypeError, KeyError):
             logger.exception("設定檔格式錯誤，使用預設值: %s", path)

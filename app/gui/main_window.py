@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
 
     def _init_ui(self) -> None:
         self.setWindowTitle("新楓之谷自動洗方塊")
-        self.setMinimumSize(500, 600)
+        self.setMinimumSize(500, 650)
 
         central = QWidget()
         layout = QVBoxLayout()
@@ -104,11 +104,11 @@ class MainWindow(QMainWindow):
 
     def _load_config_to_ui(self) -> None:
         self.settings_panel.load_from_config(self.config)
-        self.condition_editor.load_conditions(self.config.conditions)
+        self.condition_editor.load_from_config(self.config)
 
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
-        self.config.conditions = self.condition_editor.get_conditions()
+        self.condition_editor.apply_to_config(self.config)
 
         # 驗證必要設定
         if not self.config.potential_region.is_set():
@@ -155,7 +155,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self.settings_panel.apply_to_config(self.config)
-        self.config.conditions = self.condition_editor.get_conditions()
+        self.condition_editor.apply_to_config(self.config)
         self.config.save()
         if self._worker and self._worker.isRunning():
             self._worker.stop()
