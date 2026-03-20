@@ -22,7 +22,7 @@ class RollLog(QGroupBox):
     def add_result(self, result: RollResult) -> None:
         self._results.append(result)
         icon = "\u2705" if result.matched else "\u274c"
-        text = f"#{result.roll_number:03d} | {icon} {result.summary()}"
+        text = f"#{result.roll_number:05d} | {icon} {result.summary()}"
         item = QListWidgetItem(text)
         self.list_widget.addItem(item)
         self.list_widget.scrollToBottom()

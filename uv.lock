@@ -88,6 +88,7 @@ dependencies = [
     { name = "pyautogui" },
     { name = "pynput" },
     { name = "pyqt6" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -105,6 +106,7 @@ requires-dist = [
     { name = "pyautogui", specifier = ">=0.9.54" },
     { name = "pynput", specifier = ">=1.8.1" },
     { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "requests", specifier = ">=2.32.0" },
 ]
 
 [package.metadata.requires-dev]

@@ -1,6 +1,7 @@
 import ctypes
 import ctypes.wintypes
 import logging
+import threading
 import time
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,15 @@ class MouseController:
 
     def __init__(self, delay_ms: int = 500) -> None:
         self.delay_ms = delay_ms
+        self._stop_flag: threading.Event | None = None
+
+    def bind_stop_flag(self, stop_event: threading.Event) -> None:
+        """綁定停止旗標，讓 wait / press_confirm 可即時中斷。"""
+        self._stop_flag = stop_event
+
+    @property
+    def stopped(self) -> bool:
+        return self._stop_flag is not None and self._stop_flag.is_set()
 
     def press_confirm(self, times: int = 1) -> bool:
         """透過 SendInput 發送空白鍵到前景視窗。
@@ -171,6 +181,8 @@ class MouseController:
         _ensure_game_foreground()
 
         for i in range(times):
+            if self.stopped:
+                return False
             if i > 0:
                 time.sleep(_KEY_GAP_SEC)
             result = _send_key(_VK_SPACE, _SCAN_SPACE)
@@ -180,6 +192,10 @@ class MouseController:
         return True
 
     def wait(self, ms: int | None = None) -> None:
-        """等待指定毫秒，預設使用 self.delay_ms。"""
+        """等待指定毫秒，可被 stop_flag 提前中斷。"""
         delay = ms if ms is not None else self.delay_ms
-        time.sleep(delay / 1000.0)
+        if self._stop_flag is not None:
+            # 用 Event.wait 取代 time.sleep，可被 set() 瞬間喚醒
+            self._stop_flag.wait(delay / 1000.0)
+        else:
+            time.sleep(delay / 1000.0)
