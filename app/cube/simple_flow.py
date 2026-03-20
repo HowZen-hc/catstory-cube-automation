@@ -1,6 +1,7 @@
 import logging
 
 from app.core.condition import parse_potential_line
+from app.core.mouse import focus_game_window
 from app.cube.base import CubeStrategy
 from app.models.potential import RollResult
 
@@ -14,6 +15,10 @@ class SimpleFlowStrategy(CubeStrategy):
     """
 
     def execute_roll(self, roll_number: int) -> RollResult:
+        # 0. 確保遊戲視窗在前景
+        focus_game_window()
+        self.mouse.wait(ms=200)
+
         # 1. 按空白鍵觸發「重新設定」按鈕
         self.mouse.press_confirm(times=1)
         self.mouse.wait(ms=300)

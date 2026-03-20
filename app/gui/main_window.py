@@ -43,9 +43,6 @@ class MainWindow(QMainWindow):
         self.settings_panel.select_potential_region.connect(
             self._on_select_potential_region
         )
-        self.settings_panel.select_button_region.connect(
-            self._on_select_button_region
-        )
         layout.addWidget(self.settings_panel)
 
         # 條件編輯器
@@ -91,17 +88,6 @@ class MainWindow(QMainWindow):
             f"潛能區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
         )
 
-    def _on_select_button_region(self) -> None:
-        self._region_selector = RegionSelector()
-        self._region_selector.region_selected.connect(self._set_button_region)
-        self._region_selector.show()
-
-    def _set_button_region(self, region: Region) -> None:
-        self.config.button_region = region
-        self.status_bar.showMessage(
-            f"按鈕區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
-        )
-
     def _load_config_to_ui(self) -> None:
         self.settings_panel.load_from_config(self.config)
         self.condition_editor.load_from_config(self.config)
@@ -113,9 +99,6 @@ class MainWindow(QMainWindow):
         # 驗證必要設定
         if not self.config.potential_region.is_set():
             QMessageBox.warning(self, "設定不完整", "請先框選潛能區域")
-            return
-        if not self.config.button_region.is_set():
-            QMessageBox.warning(self, "設定不完整", "請先框選按鈕區域")
             return
 
         self._roll_count = 0

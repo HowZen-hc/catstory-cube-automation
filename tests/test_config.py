@@ -12,7 +12,6 @@ class TestConfigSaveLoad:
             target_attribute="STR",
             include_all_stats=True,
             potential_region=Region(100, 200, 300, 150),
-            button_region=Region(400, 500, 80, 40),
             delay_ms=800,
             hotkey="F10",
         )
@@ -25,7 +24,6 @@ class TestConfigSaveLoad:
         assert loaded.include_all_stats is True
         assert loaded.potential_region.x == 100
         assert loaded.potential_region.width == 300
-        assert loaded.button_region.y == 500
         assert loaded.delay_ms == 800
         assert loaded.hotkey == "F10"
 

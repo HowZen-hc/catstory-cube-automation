@@ -18,7 +18,6 @@ class SettingsPanel(QGroupBox):
     """設定面板：方塊類型、延遲、快捷鍵、區域框選。"""
 
     select_potential_region = pyqtSignal()
-    select_button_region = pyqtSignal()
 
     def __init__(self, parent=None) -> None:
         super().__init__("設定區", parent)
@@ -42,9 +41,6 @@ class SettingsPanel(QGroupBox):
         self.btn_select_potential = QPushButton("框選潛能區域")
         self.btn_select_potential.clicked.connect(self.select_potential_region.emit)
         row2.addWidget(self.btn_select_potential)
-        self.btn_select_button = QPushButton("框選重新設定按鈕區域")
-        self.btn_select_button.clicked.connect(self.select_button_region.emit)
-        row2.addWidget(self.btn_select_button)
         row2.addStretch()
         layout.addLayout(row2)
 
