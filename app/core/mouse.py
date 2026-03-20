@@ -1,11 +1,15 @@
 import time
 
 import pyautogui
+from pynput.keyboard import Controller as KeyboardController
+from pynput.keyboard import Key
 
 # 關閉 pyautogui 的安全暫停（預設每次操作後暫停 0.1 秒）
 pyautogui.PAUSE = 0.05
 # 關閉 fail-safe（移到左上角不會中斷）
 pyautogui.FAILSAFE = False
+
+_keyboard = KeyboardController()
 
 
 class MouseController:
@@ -19,11 +23,12 @@ class MouseController:
         pyautogui.click(x, y)
 
     def press_confirm(self, times: int = 1) -> None:
-        """按下空白鍵確認（遊戲防呆）。"""
+        """按下空白鍵確認（遊戲防呆），使用 pynput 發送。"""
         for i in range(times):
             if i > 0:
                 time.sleep(0.2)
-            pyautogui.press("space")
+            _keyboard.press(Key.space)
+            _keyboard.release(Key.space)
 
     def move(self, x: int, y: int) -> None:
         """移動到指定座標。"""

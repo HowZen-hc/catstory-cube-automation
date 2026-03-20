@@ -21,7 +21,8 @@ class SimpleFlowStrategy(CubeStrategy):
             logger.info("點擊座標: (%d, %d)", cx, cy)
             self.mouse.click(cx, cy)
 
-        # 2. 按兩次空白鍵確認（遊戲防呆雙重確認）
+        # 2. 等待彈窗出現後按兩次空白鍵確認（遊戲防呆雙重確認）
+        self.mouse.wait(ms=300)
         self.mouse.press_confirm(times=2)
 
         # 3. 等待結果
