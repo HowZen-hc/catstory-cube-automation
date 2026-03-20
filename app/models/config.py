@@ -29,12 +29,11 @@ class AppConfig:
     """應用程式設定。"""
 
     cube_type: str = "珍貴附加方塊(粉紅色)"
-    equipment_type: str = "永恆裝備·光輝套裝 (250+)"
+    equipment_type: str = "永恆裝備·光輝套裝 (250等+)"
     target_attribute: str = "STR"
     include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
-    delay_ms: int = 500
-    hotkey: str = "F9"
+    delay_ms: int = 1000
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         """儲存設定到 JSON 檔案。"""
@@ -55,12 +54,11 @@ class AppConfig:
             data = json.loads(path.read_text(encoding="utf-8"))
             return cls(
                 cube_type=data.get("cube_type", "珍貴附加方塊(粉紅色)"),
-                equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250+)"),
+                equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),
                 target_attribute=data.get("target_attribute", "STR"),
                 include_all_stats=data.get("include_all_stats", False),
                 potential_region=Region(**data.get("potential_region", {})),
-                delay_ms=data.get("delay_ms", 500),
-                hotkey=data.get("hotkey", "F9"),
+                delay_ms=data.get("delay_ms", 1000),
             )
         except (json.JSONDecodeError, TypeError, KeyError):
             logger.exception("設定檔格式錯誤，使用預設值: %s", path)

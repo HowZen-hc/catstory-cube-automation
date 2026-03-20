@@ -56,14 +56,14 @@ def parse_potential_line(text: str) -> PotentialLine:
 # (S潛, 罕見) for target attribute
 # (S潛, 罕見) for 全屬性 (None if not applicable)
 THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | None]]] = {
-    "永恆裝備·光輝套裝 (250+)": {
+    "永恆裝備·光輝套裝 (250等+)": {
         "STR": ((9, 7), (7, 6)),
         "DEX": ((9, 7), (7, 6)),
         "INT": ((9, 7), (7, 6)),
         "LUK": ((9, 7), (7, 6)),
         "MaxHP": ((12, 9), None),
     },
-    "一般裝備 (<250)": {
+    "一般裝備 (神秘、漆黑、頂培)": {
         "STR": ((8, 6), (6, 5)),
         "DEX": ((8, 6), (6, 5)),
         "INT": ((8, 6), (6, 5)),
@@ -82,13 +82,13 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
         "物理攻擊力": ((12, 9), None),
         "魔法攻擊力": ((12, 9), None),
     },
-    "手套 (250+)": {
+    "手套 (永恆)": {
         "STR": ((9, 7), (7, 6)),
         "DEX": ((9, 7), (7, 6)),
         "INT": ((9, 7), (7, 6)),
         "LUK": ((9, 7), (7, 6)),
     },
-    "手套 (<250)": {
+    "手套 (非永恆)": {
         "STR": ((8, 6), (6, 5)),
         "DEX": ((8, 6), (6, 5)),
         "INT": ((8, 6), (6, 5)),
@@ -104,13 +104,13 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
 
 # 裝備類型 → 可選屬性
 EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
-    "永恆裝備·光輝套裝 (250+)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
-    "一般裝備 (<250)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "永恆裝備·光輝套裝 (250等+)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "一般裝備 (神秘、漆黑、頂培)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
     "主武器": ["物理攻擊力", "魔法攻擊力"],
     "徽章": ["物理攻擊力", "魔法攻擊力"],
     "輔助武器": ["物理攻擊力", "魔法攻擊力"],
-    "手套 (250+)": ["STR", "DEX", "INT", "LUK"],
-    "手套 (<250)": ["STR", "DEX", "INT", "LUK"],
+    "手套 (永恆)": ["STR", "DEX", "INT", "LUK"],
+    "手套 (非永恆)": ["STR", "DEX", "INT", "LUK"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
 }
 
@@ -120,7 +120,7 @@ EQUIPMENT_TYPES = list(EQUIPMENT_ATTRIBUTES.keys())
 STATS_WITH_ALL_STATS = {"STR", "DEX", "INT", "LUK"}
 
 # 手套類型
-GLOVE_TYPES = {"手套 (250+)", "手套 (<250)"}
+GLOVE_TYPES = {"手套 (永恆)", "手套 (非永恆)"}
 
 
 def _attr_to_ocr_key(attr: str) -> str:

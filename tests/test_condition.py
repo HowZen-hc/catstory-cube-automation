@@ -105,7 +105,7 @@ class TestConditionCheckerArmor250:
 
     def _make_checker(self, include_all=True):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250+)",
+            equipment_type="永恆裝備·光輝套裝 (250等+)",
             target_attribute="STR",
             include_all_stats=include_all,
         )
@@ -189,7 +189,7 @@ class TestConditionCheckerArmorSub250:
 
     def test_pass(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="DEX",
             include_all_stats=True,
         )
@@ -203,7 +203,7 @@ class TestConditionCheckerArmorSub250:
 
     def test_fail_line1(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="DEX",
             include_all_stats=True,
         )
@@ -264,7 +264,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_pass(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -278,7 +278,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_double_s(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -292,7 +292,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_crit1_rejected(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -307,7 +307,7 @@ class TestConditionCheckerGlove:
     def test_glove_line1_attr_line2_crit(self):
         """第1行屬性、第2行爆傷也保留"""
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -322,7 +322,7 @@ class TestConditionCheckerGlove:
     def test_glove_all_attr_no_crit(self):
         """手套三行都是屬性也合格"""
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -336,7 +336,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250(self):
         config = AppConfig(
-            equipment_type="手套 (<250)",
+            equipment_type="手套 (非永恆)",
             target_attribute="LUK",
             include_all_stats=True,
         )
@@ -350,7 +350,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250_fail(self):
         config = AppConfig(
-            equipment_type="手套 (<250)",
+            equipment_type="手套 (非永恆)",
             target_attribute="LUK",
             include_all_stats=True,
         )
@@ -366,7 +366,7 @@ class TestConditionCheckerGlove:
 class TestConditionCheckerMaxHP:
     def test_maxhp_250(self):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250+)",
+            equipment_type="永恆裝備·光輝套裝 (250等+)",
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
@@ -379,7 +379,7 @@ class TestConditionCheckerMaxHP:
 
     def test_maxhp_sub250(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
