@@ -54,6 +54,26 @@ class TestParsePotentialLine:
         assert line.attribute == "爆擊傷害%"
         assert line.value == 1
 
+    def test_final_damage(self):
+        line = parse_potential_line("最終傷害：+20%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 20
+
+    def test_buff_duration(self):
+        line = parse_potential_line("加持技能持續時間：+55%")
+        assert line.attribute == "加持技能持續時間%"
+        assert line.value == 55
+
+    def test_passive_skill_2(self):
+        line = parse_potential_line("依照被動技能 2 來增加")
+        assert line.attribute == "被動技能2"
+        assert line.value == 0
+
+    def test_passive_skill_2_no_space(self):
+        line = parse_potential_line("依照被動技能2來增加")
+        assert line.attribute == "被動技能2"
+        assert line.value == 0
+
     def test_unknown_text(self):
         line = parse_potential_line("道具掉落率 +20%")
         assert line.attribute == "未知"
@@ -369,3 +389,97 @@ class TestConditionCheckerMaxHP:
             PotentialLine("MaxHP%", 8),
         ]
         assert checker.check(lines) is True
+
+
+class TestConditionCheckerPet:
+    """萌獸"""
+
+    def test_final_damage_3_lines(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="最終傷害")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is True
+
+    def test_final_damage_too_low(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="最終傷害")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("最終傷害%", 19),  # < 20
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is False
+
+    def test_physical_attack_3_lines(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="物理攻擊力")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("物理攻擊力%", 25),
+            PotentialLine("物理攻擊力%", 20),
+            PotentialLine("物理攻擊力%", 20),
+        ]
+        assert checker.check(lines) is True
+
+    def test_buff_duration_3_lines(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="加持技能持續時間")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("加持技能持續時間%", 55),
+            PotentialLine("加持技能持續時間%", 50),
+            PotentialLine("加持技能持續時間%", 50),
+        ]
+        assert checker.check(lines) is True
+
+    def test_buff_duration_too_low(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="加持技能持續時間")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("加持技能持續時間%", 55),
+            PotentialLine("加持技能持續時間%", 49),  # < 50
+            PotentialLine("加持技能持續時間%", 50),
+        ]
+        assert checker.check(lines) is False
+
+    def test_雙終被_pass(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="雙終被")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("被動技能2", 0, "依照被動技能 2 來增加"),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is True
+
+    def test_雙終被_any_order(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="雙終被")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("被動技能2", 0, "依照被動技能 2 來增加"),
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is True
+
+    def test_雙終被_final_too_low(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="雙終被")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("被動技能2", 0, "依照被動技能 2 來增加"),
+            PotentialLine("最終傷害%", 19),  # < 20
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is False
+
+    def test_雙終被_missing_passive(self):
+        config = AppConfig(equipment_type="萌獸", target_attribute="雙終被")
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is False
