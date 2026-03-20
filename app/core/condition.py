@@ -33,8 +33,26 @@ TEXT_ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 
+# OCR 常見誤讀修正表
+_OCR_FIXES: list[tuple[str, str]] = [
+    ("攻撃", "攻擊"),  # 日文漢字 → 繁體
+    ("擊カ", "擊力"),
+    ("攻擊カ", "攻擊力"),
+    ("傷宝", "傷害"),
+    ("屬住", "屬性"),
+]
+
+
+def _fix_ocr_text(text: str) -> str:
+    """修正 OCR 常見誤讀字元。"""
+    for wrong, correct in _OCR_FIXES:
+        text = text.replace(wrong, correct)
+    return text
+
+
 def parse_potential_line(text: str) -> PotentialLine:
-    """解析 OCR 文字為 PotentialLine。"""
+    """解析單段 OCR 文字為 PotentialLine。"""
+    text = _fix_ocr_text(text)
     # 先檢查純文字屬性（無數值）
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
         if pattern.search(text):
@@ -49,6 +67,34 @@ def parse_potential_line(text: str) -> PotentialLine:
                 raw_text=text,
             )
     return PotentialLine(attribute="未知", value=0, raw_text=text)
+
+
+def parse_potential_lines(raw_texts: list[str]) -> list[PotentialLine]:
+    """將 OCR 碎片合併後解析出所有潛能行。
+
+    OCR 經常把一行潛能拆成多段（如 ['STR', '+9%']），
+    這裡先合併成一整段文字，再用 regex 抽出所有匹配的潛能。
+    """
+    merged = " ".join(raw_texts)
+    merged = _fix_ocr_text(merged)
+
+    results: list[PotentialLine] = []
+
+    # 文字型屬性
+    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(merged):
+            results.append(PotentialLine(attribute=attr_name, value=0, raw_text=merged))
+
+    # 數值型屬性：找出所有匹配
+    for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
+        for match in pattern.finditer(merged):
+            results.append(PotentialLine(
+                attribute=attr_name,
+                value=int(match.group(1)),
+                raw_text=match.group(0),
+            ))
+
+    return results
 
 
 # ── 數值表 ──────────────────────────────────────────────

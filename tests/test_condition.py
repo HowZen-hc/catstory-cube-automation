@@ -1,4 +1,4 @@
-from app.core.condition import ConditionChecker, parse_potential_line
+from app.core.condition import ConditionChecker, parse_potential_line, parse_potential_lines
 from app.models.config import AppConfig
 from app.models.potential import PotentialLine
 
@@ -98,6 +98,39 @@ class TestParsePotentialLine:
         text = "STR +9%"
         line = parse_potential_line(text)
         assert line.raw_text == text
+
+    def test_ocr_fix_japanese_kanji(self):
+        """攻撃 → 攻擊 自動修正"""
+        line = parse_potential_line("物理攻撃力 +13%")
+        assert line.attribute == "物理攻擊力%"
+        assert line.value == 13
+
+
+class TestParsePotentialLines:
+    """碎片合併解析"""
+
+    def test_split_fragments(self):
+        """OCR 把 'STR +9%' 拆成 ['STR', '+9%']"""
+        lines = parse_potential_lines(["STR", "+9%"])
+        assert len(lines) == 1
+        assert lines[0].attribute == "STR%"
+        assert lines[0].value == 9
+
+    def test_multiple_lines_merged(self):
+        """多行潛能全部合併後解析"""
+        lines = parse_potential_lines(["STR", "+9%", "DEX+7%", "LUK +6%"])
+        attrs = {l.attribute for l in lines}
+        assert "STR%" in attrs
+        assert "DEX%" in attrs
+        assert "LUK%" in attrs
+        assert len(lines) == 3
+
+    def test_japanese_kanji_fix(self):
+        """攻撃 → 攻擊 修正後能解析"""
+        lines = parse_potential_lines(["物理攻撃力", "+13%"])
+        assert len(lines) == 1
+        assert lines[0].attribute == "物理攻擊力%"
+        assert lines[0].value == 13
 
 
 class TestConditionCheckerArmor250:
