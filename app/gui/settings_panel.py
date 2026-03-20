@@ -42,7 +42,7 @@ class SettingsPanel(QGroupBox):
         self.btn_select_potential = QPushButton("框選潛能區域")
         self.btn_select_potential.clicked.connect(self.select_potential_region.emit)
         row2.addWidget(self.btn_select_potential)
-        self.btn_select_button = QPushButton("框選按鈕區域")
+        self.btn_select_button = QPushButton("框選重新設定按鈕區域")
         self.btn_select_button.clicked.connect(self.select_button_region.emit)
         row2.addWidget(self.btn_select_button)
         row2.addStretch()
