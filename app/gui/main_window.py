@@ -111,13 +111,14 @@ class MainWindow(QMainWindow):
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.start()
 
-        self.btn_start.setEnabled(False)
-        self.btn_stop.setEnabled(True)
-        self.status_bar.showMessage("執行中...")
+        self._set_running_ui(True)
 
     def _on_stop(self) -> None:
         if self._worker:
             self._worker.stop()
+        self.btn_stop.setEnabled(False)
+        self.btn_stop.setText("停止中...")
+        self.status_bar.showMessage("正在停止...")
 
     def _on_roll_completed(self, result: RollResult) -> None:
         self._roll_count += 1
@@ -132,9 +133,23 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(f"錯誤: {msg}")
 
     def _on_worker_finished(self) -> None:
-        self.btn_start.setEnabled(True)
-        self.btn_stop.setEnabled(False)
-        self.status_bar.showMessage(f"完成，共洗 {self._roll_count} 次")
+        self._set_running_ui(False)
+        self.status_bar.showMessage(f"已停止，共洗 {self._roll_count} 次")
+
+    def _set_running_ui(self, running: bool) -> None:
+        """切換執行/停止狀態的 UI。"""
+        self.btn_start.setEnabled(not running)
+        self.btn_stop.setEnabled(running)
+        self.btn_stop.setText("■ 停止")
+        self.settings_panel.setEnabled(not running)
+        self.condition_editor.setEnabled(not running)
+        if running:
+            self.btn_start.setText("執行中...")
+            self.btn_start.setStyleSheet("background-color: #4CAF50; color: white;")
+            self.status_bar.showMessage("初始化中...")
+        else:
+            self.btn_start.setText("▶ 開始")
+            self.btn_start.setStyleSheet("")
 
     def closeEvent(self, event) -> None:
         self.settings_panel.apply_to_config(self.config)
