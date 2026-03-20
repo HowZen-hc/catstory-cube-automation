@@ -39,7 +39,7 @@ class AutomationWorker(QThread):
             ocr = OCREngine()
             mouse = MouseController(delay_ms=self.config.delay_ms)
             matcher = TemplateMatcher()
-            checker = ConditionChecker(self.config.conditions)
+            checker = ConditionChecker(self.config)
         except Exception as e:
             logger.exception("模組初始化失敗")
             self.error_occurred.emit(f"初始化失敗: {e}")
