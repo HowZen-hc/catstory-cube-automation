@@ -1,8 +1,10 @@
-from PyQt6.QtCore import Qt
+import logging
+
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStatusBar,
     QVBoxLayout,
@@ -17,14 +19,17 @@ from app.gui.settings_panel import SettingsPanel
 from app.models.config import AppConfig, Region
 from app.models.potential import RollResult
 
+logger = logging.getLogger(__name__)
+
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.config = AppConfig()
+        self.config = AppConfig.load()
         self._worker: AutomationWorker | None = None
         self._roll_count = 0
         self._init_ui()
+        self._load_config_to_ui()
 
     def _init_ui(self) -> None:
         self.setWindowTitle("新楓之谷自動洗方塊")
@@ -97,14 +102,29 @@ class MainWindow(QMainWindow):
             f"按鈕區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
         )
 
+    def _load_config_to_ui(self) -> None:
+        self.settings_panel.load_from_config(self.config)
+        self.condition_editor.load_conditions(self.config.conditions)
+
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
         self.config.conditions = self.condition_editor.get_conditions()
+
+        # 驗證必要設定
+        if not self.config.potential_region.is_set():
+            QMessageBox.warning(self, "設定不完整", "請先框選潛能區域")
+            return
+        if not self.config.button_region.is_set():
+            QMessageBox.warning(self, "設定不完整", "請先框選按鈕區域")
+            return
+
         self._roll_count = 0
+        self.config.save()
 
         self._worker = AutomationWorker(self.config)
         self._worker.roll_completed.connect(self._on_roll_completed)
         self._worker.status_changed.connect(self._on_status_changed)
+        self._worker.error_occurred.connect(self._on_error)
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.start()
 
@@ -124,7 +144,20 @@ class MainWindow(QMainWindow):
     def _on_status_changed(self, msg: str) -> None:
         self.status_bar.showMessage(msg)
 
+    def _on_error(self, msg: str) -> None:
+        logger.error("自動化錯誤: %s", msg)
+        self.status_bar.showMessage(f"錯誤: {msg}")
+
     def _on_worker_finished(self) -> None:
         self.btn_start.setEnabled(True)
         self.btn_stop.setEnabled(False)
         self.status_bar.showMessage(f"完成，共洗 {self._roll_count} 次")
+
+    def closeEvent(self, event) -> None:
+        self.settings_panel.apply_to_config(self.config)
+        self.config.conditions = self.condition_editor.get_conditions()
+        self.config.save()
+        if self._worker and self._worker.isRunning():
+            self._worker.stop()
+            self._worker.wait(3000)
+        super().closeEvent(event)
