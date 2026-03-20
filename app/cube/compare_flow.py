@@ -1,4 +1,5 @@
-from app.core.condition import parse_potential_line
+from app.core.condition import parse_potential_lines
+from app.core.ocr_logger import log_ocr_result
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
 
@@ -12,7 +13,7 @@ class CompareFlowStrategy(CubeStrategy):
 
     def execute_roll(self, roll_number: int) -> RollResult:
         # 1. OCR 讀取當前（使用前）潛能
-        before_lines = self._read_potential()
+        before_lines = self._read_potential(roll_number)
 
         # 2. 按空白鍵觸發使用方塊
         self.mouse.press_confirm(times=1)
@@ -25,7 +26,7 @@ class CompareFlowStrategy(CubeStrategy):
         self.mouse.wait(ms=300)
 
         # 5. OCR 讀取新潛能
-        after_lines = self._read_potential()
+        after_lines = self._read_potential(roll_number)
 
         # 6. 判斷是否符合目標
         matched = self.checker.check(after_lines)
@@ -44,12 +45,14 @@ class CompareFlowStrategy(CubeStrategy):
             matched=matched,
         )
 
-    def _read_potential(self) -> list[PotentialLine]:
+    def _read_potential(self, roll_number: int) -> list[PotentialLine]:
         if not self.config.potential_region.is_set():
             return []
         img = self.screen.capture(self.config.potential_region)
         texts = self.ocr.recognize(img)
-        return [parse_potential_line(t) for t in texts]
+        lines = parse_potential_lines(texts)
+        log_ocr_result(roll_number, texts, lines)
+        return lines
 
     def _is_better(
         self,

@@ -1,10 +1,7 @@
-import logging
-
-from app.core.condition import parse_potential_line
+from app.core.condition import parse_potential_lines
+from app.core.ocr_logger import log_ocr_result
 from app.cube.base import CubeStrategy
 from app.models.potential import RollResult
-
-logger = logging.getLogger(__name__)
 
 
 class SimpleFlowStrategy(CubeStrategy):
@@ -29,8 +26,8 @@ class SimpleFlowStrategy(CubeStrategy):
         if self.config.potential_region.is_set():
             pot_img = self.screen.capture(self.config.potential_region)
             texts = self.ocr.recognize(pot_img)
-            logger.info("OCR 原始結果: %s", texts)
-            lines = [parse_potential_line(t) for t in texts]
+            lines = parse_potential_lines(texts)
+            log_ocr_result(roll_number, texts, lines)
 
         # 4. 判斷條件
         matched = self.checker.check(lines)
