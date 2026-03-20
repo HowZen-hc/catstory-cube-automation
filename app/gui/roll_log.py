@@ -6,6 +6,8 @@ from app.models.potential import RollResult
 class RollLog(QGroupBox):
     """洗方塊歷史紀錄顯示。"""
 
+    MAX_ENTRIES = 1000
+
     def __init__(self, parent=None) -> None:
         super().__init__("洗方塊紀錄", parent)
         self._results: list[RollResult] = []
@@ -24,6 +26,11 @@ class RollLog(QGroupBox):
         item = QListWidgetItem(text)
         self.list_widget.addItem(item)
         self.list_widget.scrollToBottom()
+
+        # 超過上限時移除最舊的紀錄
+        while self.list_widget.count() > self.MAX_ENTRIES:
+            self.list_widget.takeItem(0)
+            self._results.pop(0)
 
     def clear_log(self) -> None:
         self._results.clear()

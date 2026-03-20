@@ -6,6 +6,7 @@ from app.models.potential import PotentialLine
 
 # OCR 文字 → 屬性名稱 + 數值
 ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
+    # 主要屬性（用於條件判斷）
     "STR%": re.compile(r"STR\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "DEX%": re.compile(r"DEX\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "INT%": re.compile(r"INT\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
@@ -15,11 +16,30 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "爆擊傷害%": re.compile(r"爆擊傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
+    "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力]?\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    # 萌獸屬性
+    "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+}
+
+# 文字描述型屬性（無數值）
+TEXT_ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
+    "被動技能2": re.compile(r"依照被動技能\s*2\s*來增加"),
 }
 
 
 def parse_potential_line(text: str) -> PotentialLine:
     """解析 OCR 文字為 PotentialLine。"""
+    # 先檢查純文字屬性（無數值）
+    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(text):
+            return PotentialLine(attribute=attr_name, value=0, raw_text=text)
+    # 再檢查數值型屬性
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         match = pattern.search(text)
         if match:
@@ -74,6 +94,12 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
         "INT": ((8, 6), (6, 5)),
         "LUK": ((8, 6), (6, 5)),
     },
+    "萌獸": {
+        "最終傷害": ((20, 20), None),
+        "物理攻擊力": ((20, 20), None),
+        "魔法攻擊力": ((20, 20), None),
+        "加持技能持續時間": ((50, 50), None),
+    },
 }
 
 # 裝備類型 → 可選屬性
@@ -85,6 +111,7 @@ EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
     "輔助武器": ["物理攻擊力", "魔法攻擊力"],
     "手套 (250+)": ["STR", "DEX", "INT", "LUK"],
     "手套 (<250)": ["STR", "DEX", "INT", "LUK"],
+    "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
 }
 
 EQUIPMENT_TYPES = list(EQUIPMENT_ATTRIBUTES.keys())
@@ -106,6 +133,8 @@ def _attr_to_ocr_key(attr: str) -> str:
         "MaxHP": "MaxHP%",
         "物理攻擊力": "物理攻擊力%",
         "魔法攻擊力": "魔法攻擊力%",
+        "最終傷害": "最終傷害%",
+        "加持技能持續時間": "加持技能持續時間%",
     }
     return mapping.get(attr, attr)
 
@@ -136,6 +165,14 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     attr = config.target_attribute
     include_all = config.include_all_stats
 
+    # 萌獸雙終被：特殊條件
+    if equip == "萌獸" and attr == "雙終被":
+        return [
+            "需要 3 行中包含:",
+            "  2 行 最終傷害% >= 20",
+            "  1 行 被動技能2（依照被動技能 2 來增加）",
+        ]
+
     thresholds = THRESHOLD_TABLE.get(equip, {}).get(attr)
     if not thresholds:
         return ["無法產生條件：裝備類型或屬性不正確"]
@@ -143,6 +180,10 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     (s_val, r_val), all_stats_thresholds = thresholds
     is_glove = equip in GLOVE_TYPES
     target_key = _attr_to_ocr_key(attr)
+
+    # 萌獸：三排同屬性，不分 S潛/罕見
+    if equip == "萌獸":
+        return [f"三排 {target_key} >= {s_val}"]
 
     lines = []
     for i in range(3):
@@ -171,6 +212,12 @@ class ConditionChecker:
         equip = config.equipment_type
         attr = config.target_attribute
 
+        # 萌獸雙終被：特殊條件
+        self._is_雙終被 = equip == "萌獸" and attr == "雙終被"
+        if self._is_雙終被:
+            self._valid = True
+            return
+
         thresholds = THRESHOLD_TABLE.get(equip, {}).get(attr)
         if not thresholds:
             self._valid = False
@@ -194,6 +241,9 @@ class ConditionChecker:
         if len(lines) < 3:
             return False
 
+        if self._is_雙終被:
+            return self._check_雙終被(lines)
+
         for i in range(3):
             is_legendary = (i == 0)
             target_min = self._s_val if is_legendary else self._r_val
@@ -208,3 +258,11 @@ class ConditionChecker:
             ):
                 return False
         return True
+
+    def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
+        """雙終被：2 行最終傷害 >= 20% + 1 行被動技能2。"""
+        final_dmg_count = sum(
+            1 for l in lines if l.attribute == "最終傷害%" and l.value >= 20
+        )
+        passive2_count = sum(1 for l in lines if l.attribute == "被動技能2")
+        return final_dmg_count >= 2 and passive2_count >= 1
