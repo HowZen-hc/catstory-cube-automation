@@ -1,5 +1,5 @@
 from app.core.condition import parse_potential_lines
-from app.core.ocr_logger import log_ocr_result
+from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
 
@@ -52,6 +52,8 @@ class CompareFlowStrategy(CubeStrategy):
         texts = self.ocr.recognize(img)
         lines = parse_potential_lines(texts)
         log_ocr_result(roll_number, texts, lines)
+        if not texts:
+            save_debug_image(roll_number, img)
         return lines
 
     def _is_better(

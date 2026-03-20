@@ -1,5 +1,5 @@
 from app.core.condition import parse_potential_lines
-from app.core.ocr_logger import log_ocr_result
+from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import RollResult
 
@@ -28,6 +28,8 @@ class SimpleFlowStrategy(CubeStrategy):
             texts = self.ocr.recognize(pot_img)
             lines = parse_potential_lines(texts)
             log_ocr_result(roll_number, texts, lines)
+            if not texts:
+                save_debug_image(roll_number, pot_img)
 
         # 4. 判斷條件
         matched = self.checker.check(lines)

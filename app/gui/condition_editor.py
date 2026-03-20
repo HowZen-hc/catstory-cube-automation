@@ -82,7 +82,7 @@ class ConditionEditor(QGroupBox):
         row1.addWidget(QLabel("裝備類型:"))
         self.equip_combo = QComboBox()
         self.equip_combo.setMinimumWidth(200)
-        self.equip_combo.addItems(EQUIPMENT_TYPES)
+        self.equip_combo.addItems([t for t in EQUIPMENT_TYPES if t != "萌獸"])
         self.equip_combo.currentTextChanged.connect(self._on_equip_changed)
         row1.addWidget(self.equip_combo)
         row1.addStretch()
@@ -202,16 +202,17 @@ class ConditionEditor(QGroupBox):
     def on_cube_type_changed(self, cube_type: str) -> None:
         """當方塊類型改變時由 main_window 呼叫。"""
         if cube_type == "萌獸方塊":
-            idx = self.equip_combo.findText("萌獸")
-            if idx >= 0:
-                self.equip_combo.setCurrentIndex(idx)
+            # 動態加入萌獸選項並選取
+            if self.equip_combo.findText("萌獸") < 0:
+                self.equip_combo.addItem("萌獸")
+            self.equip_combo.setCurrentText("萌獸")
             self._equip_row.setVisible(False)
         else:
-            if not self._equip_row.isVisible():
-                self._equip_row.setVisible(True)
-            # 從萌獸切回其他方塊時，重設裝備類型為預設值
-            if self.equip_combo.currentText() == "萌獸":
-                self.equip_combo.setCurrentIndex(0)
+            # 移除萌獸選項
+            idx = self.equip_combo.findText("萌獸")
+            if idx >= 0:
+                self.equip_combo.removeItem(idx)
+            self._equip_row.setVisible(True)
 
     # ── 預設/自訂切換 ──
 
