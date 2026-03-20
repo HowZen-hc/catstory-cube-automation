@@ -142,13 +142,13 @@ class ConditionEditor(QGroupBox):
         self._custom_widget.setVisible(False)
         layout.addWidget(self._custom_widget)
 
-        # 初始建立 1 排
-        self._add_custom_row()
-
         # 條件預覽
         self.summary_label = QLabel()
         self.summary_label.setStyleSheet("color: #666; padding: 4px;")
         layout.addWidget(self.summary_label)
+
+        # 初始建立 1 排（需在 summary_label 之後，因為會觸發 _update_summary）
+        self._add_custom_row()
 
         self.setLayout(layout)
 
