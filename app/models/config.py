@@ -33,7 +33,6 @@ class AppConfig:
     target_attribute: str = "STR"
     include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
-    button_region: Region = field(default_factory=Region)
     delay_ms: int = 500
     hotkey: str = "F9"
 
@@ -60,7 +59,6 @@ class AppConfig:
                 target_attribute=data.get("target_attribute", "STR"),
                 include_all_stats=data.get("include_all_stats", False),
                 potential_region=Region(**data.get("potential_region", {})),
-                button_region=Region(**data.get("button_region", {})),
                 delay_ms=data.get("delay_ms", 500),
                 hotkey=data.get("hotkey", "F9"),
             )

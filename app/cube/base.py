@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 from app.core.condition import ConditionChecker
-from app.core.matcher import TemplateMatcher
 from app.core.mouse import MouseController
 from app.core.ocr import OCREngine
 from app.core.screen import ScreenCapture
@@ -18,14 +17,12 @@ class CubeStrategy(ABC):
         screen: ScreenCapture,
         ocr: OCREngine,
         mouse: MouseController,
-        matcher: TemplateMatcher,
         checker: ConditionChecker,
     ) -> None:
         self.config = config
         self.screen = screen
         self.ocr = ocr
         self.mouse = mouse
-        self.matcher = matcher
         self.checker = checker
 
     @abstractmethod

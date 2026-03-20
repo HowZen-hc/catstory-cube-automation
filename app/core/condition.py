@@ -15,7 +15,7 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "爆擊傷害%": re.compile(r"爆擊傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "爆擊傷害%": re.compile(r"爆[擊擎]傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),

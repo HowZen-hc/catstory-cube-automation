@@ -3,7 +3,6 @@ import logging
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.condition import ConditionChecker
-from app.core.matcher import TemplateMatcher
 from app.core.mouse import MouseController, focus_game_window
 from app.core.ocr import OCREngine
 from app.core.screen import ScreenCapture
@@ -38,7 +37,6 @@ class AutomationWorker(QThread):
             screen = ScreenCapture()
             ocr = OCREngine()
             mouse = MouseController(delay_ms=self.config.delay_ms)
-            matcher = TemplateMatcher()
             checker = ConditionChecker(self.config)
         except Exception as e:
             logger.exception("模組初始化失敗")
@@ -49,11 +47,11 @@ class AutomationWorker(QThread):
         # 根據方塊類型選擇策略
         if self.config.cube_type == "恢復附加方塊(紅色)":
             strategy = CompareFlowStrategy(
-                self.config, screen, ocr, mouse, matcher, checker
+                self.config, screen, ocr, mouse, checker
             )
         else:
             strategy = SimpleFlowStrategy(
-                self.config, screen, ocr, mouse, matcher, checker
+                self.config, screen, ocr, mouse, checker
             )
 
         # 將遊戲視窗拉到前景
