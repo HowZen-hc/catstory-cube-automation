@@ -1,0 +1,130 @@
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
+)
+
+from app.core.automation import AutomationWorker
+from app.gui.condition_editor import ConditionEditor
+from app.gui.region_selector import RegionSelector
+from app.gui.roll_log import RollLog
+from app.gui.settings_panel import SettingsPanel
+from app.models.config import AppConfig, Region
+from app.models.potential import RollResult
+
+
+class MainWindow(QMainWindow):
+    def __init__(self) -> None:
+        super().__init__()
+        self.config = AppConfig()
+        self._worker: AutomationWorker | None = None
+        self._roll_count = 0
+        self._init_ui()
+
+    def _init_ui(self) -> None:
+        self.setWindowTitle("新楓之谷自動洗方塊")
+        self.setMinimumSize(500, 600)
+
+        central = QWidget()
+        layout = QVBoxLayout()
+
+        # 設定面板
+        self.settings_panel = SettingsPanel()
+        self.settings_panel.select_potential_region.connect(
+            self._on_select_potential_region
+        )
+        self.settings_panel.select_button_region.connect(
+            self._on_select_button_region
+        )
+        layout.addWidget(self.settings_panel)
+
+        # 條件編輯器
+        self.condition_editor = ConditionEditor()
+        layout.addWidget(self.condition_editor)
+
+        # 控制列
+        control_layout = QHBoxLayout()
+        self.btn_start = QPushButton("▶ 開始")
+        self.btn_start.clicked.connect(self._on_start)
+        control_layout.addWidget(self.btn_start)
+
+        self.btn_stop = QPushButton("■ 停止")
+        self.btn_stop.setEnabled(False)
+        self.btn_stop.clicked.connect(self._on_stop)
+        control_layout.addWidget(self.btn_stop)
+
+        self.count_label = QLabel("次數: 0")
+        control_layout.addWidget(self.count_label)
+        control_layout.addStretch()
+        layout.addLayout(control_layout)
+
+        # 洗方塊紀錄
+        self.roll_log = RollLog()
+        layout.addWidget(self.roll_log)
+
+        central.setLayout(layout)
+        self.setCentralWidget(central)
+
+        # 狀態列
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("就緒")
+
+    def _on_select_potential_region(self) -> None:
+        self._region_selector = RegionSelector()
+        self._region_selector.region_selected.connect(self._set_potential_region)
+        self._region_selector.show()
+
+    def _set_potential_region(self, region: Region) -> None:
+        self.config.potential_region = region
+        self.status_bar.showMessage(
+            f"潛能區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
+        )
+
+    def _on_select_button_region(self) -> None:
+        self._region_selector = RegionSelector()
+        self._region_selector.region_selected.connect(self._set_button_region)
+        self._region_selector.show()
+
+    def _set_button_region(self, region: Region) -> None:
+        self.config.button_region = region
+        self.status_bar.showMessage(
+            f"按鈕區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
+        )
+
+    def _on_start(self) -> None:
+        self.settings_panel.apply_to_config(self.config)
+        self.config.conditions = self.condition_editor.get_conditions()
+        self._roll_count = 0
+
+        self._worker = AutomationWorker(self.config)
+        self._worker.roll_completed.connect(self._on_roll_completed)
+        self._worker.status_changed.connect(self._on_status_changed)
+        self._worker.finished.connect(self._on_worker_finished)
+        self._worker.start()
+
+        self.btn_start.setEnabled(False)
+        self.btn_stop.setEnabled(True)
+        self.status_bar.showMessage("執行中...")
+
+    def _on_stop(self) -> None:
+        if self._worker:
+            self._worker.stop()
+
+    def _on_roll_completed(self, result: RollResult) -> None:
+        self._roll_count += 1
+        self.count_label.setText(f"次數: {self._roll_count}")
+        self.roll_log.add_result(result)
+
+    def _on_status_changed(self, msg: str) -> None:
+        self.status_bar.showMessage(msg)
+
+    def _on_worker_finished(self) -> None:
+        self.btn_start.setEnabled(True)
+        self.btn_stop.setEnabled(False)
+        self.status_bar.showMessage(f"完成，共洗 {self._roll_count} 次")
