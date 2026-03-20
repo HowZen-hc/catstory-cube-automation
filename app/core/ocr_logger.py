@@ -2,10 +2,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+
 from app.models.potential import PotentialLine
 
 LOG_DIR = Path("logs")
 OCR_LOG_FILE = LOG_DIR / "ocr_results.log"
+DEBUG_IMG_DIR = LOG_DIR / "debug"
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,23 @@ def _format_parsed(parsed: PotentialLine) -> str:
         return parsed.attribute
     attr_name = parsed.attribute.removesuffix("%")
     return f"{attr_name} +{parsed.value}%"
+
+
+def save_debug_image(roll_number: int, image: np.ndarray) -> None:
+    """儲存 OCR 截圖供除錯用（僅保留最近 5 張）。"""
+    try:
+        import cv2
+
+        DEBUG_IMG_DIR.mkdir(parents=True, exist_ok=True)
+        path = DEBUG_IMG_DIR / f"roll_{roll_number:05d}.png"
+        cv2.imwrite(str(path), image)
+
+        # 只保留最近 5 張
+        imgs = sorted(DEBUG_IMG_DIR.glob("roll_*.png"))
+        for old in imgs[:-5]:
+            old.unlink(missing_ok=True)
+    except Exception:
+        logger.debug("無法儲存 debug 截圖", exc_info=True)
 
 
 def log_ocr_result(
