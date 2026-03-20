@@ -132,6 +132,28 @@ class TestParsePotentialLines:
         assert lines[0].attribute == "物理攻擊力%"
         assert lines[0].value == 13
 
+    def test_simplified_chinese_fix(self):
+        """簡體字修正：最终→最終, 全国性→全屬性"""
+        lines = parse_potential_lines(["全国性：+7%", "最终傷害：+20%"])
+        assert len(lines) == 2
+        assert lines[0].attribute == "全屬性%"
+        assert lines[0].value == 7
+        assert lines[1].attribute == "最終傷害%"
+        assert lines[1].value == 20
+
+    def test_positional_order_preserved(self):
+        """結果應按原始文字位置排序，而非 ATTRIBUTE_PATTERNS 順序"""
+        lines = parse_potential_lines(["最終傷害：+20%", "STR：+9%"])
+        assert len(lines) == 2
+        assert lines[0].attribute == "最終傷害%"
+        assert lines[1].attribute == "STR%"
+
+    def test_pet_cube_ocr_misread(self):
+        """實際萌獸方塊 OCR 結果（含簡繁混雜）"""
+        lines = parse_potential_lines(["全国性：+20", "DEX", "最终傷害：+20%", "：+14%"])
+        attrs = [l.attribute for l in lines]
+        assert "最終傷害%" in attrs
+
 
 class TestConditionCheckerArmor250:
     """永恆裝備 STR 含全屬性"""
@@ -689,66 +711,6 @@ class TestConditionCheckerCustomSummary:
         lines = generate_condition_summary(config)
         assert "被動技能2" in lines[2]
         assert "第3排" in lines[2]
-
-    def test_custom_summary_with_all_stats(self):
-        from app.core.condition import generate_condition_summary
-
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[
-                LineCondition("STR", 9, include_all_stats=True),
-            ],
-        )
-        lines = generate_condition_summary(config)
-        assert len(lines) == 1
-        assert "STR 至少 9%" in lines[0]
-        assert "全屬性 至少 9%" in lines[0]
-
-
-class TestConditionCheckerCustomIncludeAllStats:
-    """自訂模式含全屬性測試"""
-
-    def test_include_all_stats_accepts_all_stats(self):
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[
-                LineCondition("STR", 7, include_all_stats=True),
-                LineCondition("STR", 7, include_all_stats=True),
-            ],
-        )
-        checker = ConditionChecker(config)
-        lines = [
-            PotentialLine("STR%", 9),
-            PotentialLine("全屬性%", 7),
-        ]
-        assert checker.check(lines) is True
-
-    def test_include_all_stats_rejects_low_value(self):
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[
-                LineCondition("STR", 7, include_all_stats=True),
-            ],
-        )
-        checker = ConditionChecker(config)
-        lines = [
-            PotentialLine("全屬性%", 6),
-        ]
-        assert checker.check(lines) is False
-
-    def test_without_include_all_stats_rejects_all_stats(self):
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[
-                LineCondition("STR", 7, include_all_stats=False),
-            ],
-        )
-        checker = ConditionChecker(config)
-        lines = [
-            PotentialLine("全屬性%", 9),
-        ]
-        assert checker.check(lines) is False
-
 
 class TestConditionCheckerDynamicRows:
     """自訂模式動態排數測試"""

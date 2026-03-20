@@ -14,7 +14,6 @@ from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
     GLOVE_TYPES,
-    STATS_WITH_ALL_STATS,
     generate_condition_summary,
     get_custom_attributes,
 )
@@ -48,10 +47,6 @@ class _CustomRowWidget(QWidget):
         self.value_spin.setSuffix(" %")
         layout.addWidget(self.value_spin)
 
-        self.all_stats_check = QCheckBox("含全屬性")
-        self.all_stats_check.setVisible(False)
-        layout.addWidget(self.all_stats_check)
-
         self.remove_btn = QPushButton("✕")
         self.remove_btn.setFixedWidth(28)
         self.remove_btn.setVisible(removable)
@@ -65,13 +60,10 @@ class _CustomRowWidget(QWidget):
         self._label.setText(f"第{index + 1}排:")
 
     def update_visibility(self) -> None:
-        """根據屬性更新 spin 和 all_stats checkbox 顯示。"""
+        """根據屬性更新 spin 顯示。"""
         attr = self.attr_combo.currentText()
         self.value_spin.setVisible(attr != "被動技能2")
         self._ge_label.setVisible(attr != "被動技能2")
-        self.all_stats_check.setVisible(attr in STATS_WITH_ALL_STATS)
-        if attr not in STATS_WITH_ALL_STATS:
-            self.all_stats_check.setChecked(False)
 
 
 class ConditionEditor(QGroupBox):
@@ -173,12 +165,10 @@ class ConditionEditor(QGroupBox):
             if cidx >= 0:
                 row.attr_combo.setCurrentIndex(cidx)
             row.value_spin.setValue(lc.min_value)
-            row.all_stats_check.setChecked(lc.include_all_stats)
 
         # 連接 signals
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
         row.value_spin.valueChanged.connect(self._on_custom_changed)
-        row.all_stats_check.stateChanged.connect(self._on_custom_changed)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
 
         self._custom_rows.append(row)
@@ -218,6 +208,9 @@ class ConditionEditor(QGroupBox):
         else:
             if not self._equip_row.isVisible():
                 self._equip_row.setVisible(True)
+            # 從萌獸切回其他方塊時，重設裝備類型為預設值
+            if self.equip_combo.currentText() == "萌獸":
+                self.equip_combo.setCurrentIndex(0)
 
     # ── 預設/自訂切換 ──
 
@@ -312,7 +305,6 @@ class ConditionEditor(QGroupBox):
             custom_lines.append(LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
-                include_all_stats=row.all_stats_check.isChecked(),
             ))
         return AppConfig(
             equipment_type=self.equip_combo.currentText(),
@@ -331,7 +323,6 @@ class ConditionEditor(QGroupBox):
             LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
-                include_all_stats=row.all_stats_check.isChecked(),
             )
             for row in self._custom_rows
         ]
