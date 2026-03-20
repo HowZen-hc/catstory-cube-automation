@@ -34,7 +34,7 @@ class AutomationWorker(QThread):
         self._running = True
 
         try:
-            self.status_changed.emit("初始化模組...")
+            self.status_changed.emit("初始化 OCR 引擎（首次啟動需下載模型，請稍候）...")
             screen = ScreenCapture()
             ocr = OCREngine()
             mouse = MouseController(delay_ms=self.config.delay_ms)
