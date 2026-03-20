@@ -148,6 +148,19 @@ class TestParsePotentialLines:
         assert lines[0].attribute == "最終傷害%"
         assert lines[1].attribute == "STR%"
 
+    def test_cross_fragment_percent_not_matched(self):
+        """'DEX +18' 不應因隔壁碎片的 '%' 被誤判為 DEX +18%"""
+        lines = parse_potential_lines(["MaxMP+300", "DEX +18", "%9+INI"])
+        attrs = [l.attribute for l in lines]
+        assert "DEX%" not in attrs
+
+    def test_cross_fragment_percent_second_case(self):
+        """'STR +18' 不應因隔壁碎片的 '%' 被誤判為 STR +18%"""
+        lines = parse_potential_lines(["STR +18", "STR +18", "%9+", "XEI"])
+        # STR +18 是固定值，不是百分比，不應被解析
+        attrs = [l.attribute for l in lines]
+        assert "STR%" not in attrs
+
     def test_pet_cube_ocr_misread(self):
         """實際萌獸方塊 OCR 結果（含簡繁混雜）"""
         lines = parse_potential_lines(["全国性：+20", "DEX", "最终傷害：+20%", "：+14%"])

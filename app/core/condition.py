@@ -7,24 +7,24 @@ from app.models.potential import PotentialLine
 # OCR 文字 → 屬性名稱 + 數值
 ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     # 主要屬性（用於條件判斷）
-    "STR%": re.compile(r"STR\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "DEX%": re.compile(r"DEX\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "INT%": re.compile(r"INT\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "LUK%": re.compile(r"LUK\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "全屬性%": re.compile(r"全屬性\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "爆擊傷害%": re.compile(r"爆[擊擎]傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "STR%": re.compile(r"STR\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "DEX%": re.compile(r"DEX\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "INT%": re.compile(r"INT\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "LUK%": re.compile(r"LUK\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "全屬性%": re.compile(r"全屬性\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "爆擊傷害%": re.compile(r"爆[擊擎]傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
-    "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力]?\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 萌獸屬性
-    "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
-    "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+)\s*%"),
+    "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
 }
 
 # 文字描述型屬性（無數值）
@@ -81,7 +81,7 @@ def parse_potential_lines(raw_texts: list[str]) -> list[PotentialLine]:
     這裡先合併成一整段文字，再用 regex 抽出所有匹配的潛能。
     結果按照原始文字中的出現位置排序。
     """
-    merged = " ".join(raw_texts)
+    merged = "\n".join(raw_texts)
     merged = _fix_ocr_text(merged)
 
     # (position, PotentialLine) — 保留位置用於排序

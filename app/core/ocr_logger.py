@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
+from app.core.condition import parse_potential_line
 from app.models.potential import PotentialLine
 
 LOG_DIR = Path("logs")
@@ -52,6 +53,14 @@ def log_ocr_result(
     """將 OCR 原始結果與解析結果寫入檔案，供後續建立字典使用。"""
     _ensure_log_dir()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 同步印到 console：逐碎片顯示辨識結果
+    parts = [f"#{roll_number:05d}"]
+    for i, text in enumerate(raw_texts, 1):
+        result = parse_potential_line(text)
+        parts.append(f"  [{i}] {text!r} → {_format_parsed(result)}")
+    logger.info("\n".join(parts))
+
     try:
         with OCR_LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] #{roll_number:05d}\n")
