@@ -58,11 +58,13 @@ class RegionSelector(QWidget):
     def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self._start and self._end:
             rect = QRect(self._start, self._end).normalized()
+            # 邏輯座標 → 實體像素座標（處理 DPI 縮放）
+            ratio = self.devicePixelRatio()
             region = Region(
-                x=rect.x(),
-                y=rect.y(),
-                width=rect.width(),
-                height=rect.height(),
+                x=int(rect.x() * ratio),
+                y=int(rect.y() * ratio),
+                width=int(rect.width() * ratio),
+                height=int(rect.height() * ratio),
             )
             self.region_selected.emit(region)
             self.close()
