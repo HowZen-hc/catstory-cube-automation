@@ -18,6 +18,11 @@ class MouseController:
         """移動到指定座標並點擊。"""
         pyautogui.click(x, y)
 
+    def press_enter(self, times: int = 1) -> None:
+        """按下 Enter 鍵。"""
+        for _ in range(times):
+            pyautogui.press("enter")
+
     def move(self, x: int, y: int) -> None:
         """移動到指定座標。"""
         pyautogui.moveTo(x, y)
