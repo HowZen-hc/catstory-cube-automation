@@ -274,22 +274,17 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     if equip == "萌獸":
         return [f"三排: {attr} 至少 {s_val}%"]
 
-    lines = []
-    for i in range(3):
-        is_legendary = (i == 0)
-        min_val = s_val if is_legendary else r_val
-        parts = [f"{attr} 至少 {min_val}%"]
+    # 精簡一行格式
+    parts = [f"三排 {attr} 至少 {s_val}%/{r_val}%"]
 
-        if include_all and all_stats_thresholds:
-            all_min = all_stats_thresholds[0] if is_legendary else all_stats_thresholds[1]
-            parts.append(f"全屬性 至少 {all_min}%")
+    if include_all and all_stats_thresholds:
+        all_s, all_r = all_stats_thresholds
+        parts.append(f"全屬性 至少 {all_s}%/{all_r}%")
 
-        if is_glove:
-            parts.append("爆擊傷害 至少 3%")
+    if is_glove:
+        parts.append("爆擊傷害 至少 3%")
 
-        lines.append(f"第{i+1}排: {' 或 '.join(parts)}")
-
-    return lines
+    return [" 或 ".join(parts)]
 
 
 class ConditionChecker:
