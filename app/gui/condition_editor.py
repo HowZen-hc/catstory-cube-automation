@@ -218,6 +218,9 @@ class ConditionEditor(QGroupBox):
         else:
             if not self._equip_row.isVisible():
                 self._equip_row.setVisible(True)
+            # 從萌獸切回其他方塊時，重設裝備類型為預設值
+            if self.equip_combo.currentText() == "萌獸":
+                self.equip_combo.setCurrentIndex(0)
 
     # ── 預設/自訂切換 ──
 
