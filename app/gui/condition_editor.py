@@ -1,123 +1,105 @@
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
-    QPushButton,
-    QSpinBox,
+    QLabel,
     QVBoxLayout,
-    QWidget,
 )
 
-from app.models.config import TargetCondition
-
-ATTRIBUTES = [
-    "任意",
-    "攻擊力%",
-    "魔力%",
-    "BOSS傷害%",
-    "無視防禦%",
-    "總傷害%",
-    "暴擊傷害%",
-    "全屬性%",
-    "HP%",
-    "MP%",
-    "防禦力%",
-]
-
-OPERATORS = [">=", "=", "contains"]
-
-
-class ConditionRow(QWidget):
-    """單行條件編輯。"""
-
-    def __init__(self, line_index: int, parent=None) -> None:
-        super().__init__(parent)
-        self.line_index = line_index
-        self._init_ui()
-
-    def _init_ui(self) -> None:
-        layout = QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.label = QComboBox()
-        self.label.addItems([f"第{i+1}行" for i in range(3)])
-        self.label.setCurrentIndex(self.line_index)
-        layout.addWidget(self.label)
-
-        self.attr_combo = QComboBox()
-        self.attr_combo.addItems(ATTRIBUTES)
-        layout.addWidget(self.attr_combo)
-
-        self.op_combo = QComboBox()
-        self.op_combo.addItems(OPERATORS)
-        layout.addWidget(self.op_combo)
-
-        self.value_spin = QSpinBox()
-        self.value_spin.setRange(0, 100)
-        layout.addWidget(self.value_spin)
-
-        self.btn_delete = QPushButton("×")
-        self.btn_delete.setFixedWidth(30)
-        layout.addWidget(self.btn_delete)
-
-        self.setLayout(layout)
-
-    def to_condition(self) -> TargetCondition:
-        return TargetCondition(
-            line_index=self.label.currentIndex(),
-            attribute=self.attr_combo.currentText(),
-            operator=self.op_combo.currentText(),
-            value=self.value_spin.value(),
-        )
+from app.core.condition import (
+    EQUIPMENT_ATTRIBUTES,
+    EQUIPMENT_TYPES,
+    GLOVE_TYPES,
+    STATS_WITH_ALL_STATS,
+    generate_condition_summary,
+)
+from app.models.config import AppConfig
 
 
 class ConditionEditor(QGroupBox):
-    """目標潛能條件編輯器。"""
+    """目標潛能條件編輯器 — 根據裝備類型自動產生條件。"""
 
     def __init__(self, parent=None) -> None:
         super().__init__("目標條件", parent)
-        self._rows: list[ConditionRow] = []
         self._init_ui()
 
     def _init_ui(self) -> None:
-        self._layout = QVBoxLayout()
+        layout = QVBoxLayout()
 
-        self.btn_add = QPushButton("+ 新增條件")
-        self.btn_add.clicked.connect(self._add_row)
-        self._layout.addWidget(self.btn_add)
+        # 裝備類型
+        row1 = QHBoxLayout()
+        row1.addWidget(QLabel("裝備類型:"))
+        self.equip_combo = QComboBox()
+        self.equip_combo.addItems(EQUIPMENT_TYPES)
+        self.equip_combo.currentTextChanged.connect(self._on_equip_changed)
+        row1.addWidget(self.equip_combo)
+        row1.addStretch()
+        layout.addLayout(row1)
 
-        self._rows_layout = QVBoxLayout()
-        self._layout.addLayout(self._rows_layout)
+        # 目標屬性
+        row2 = QHBoxLayout()
+        row2.addWidget(QLabel("目標屬性:"))
+        self.attr_combo = QComboBox()
+        self.attr_combo.currentTextChanged.connect(self._on_attr_changed)
+        row2.addWidget(self.attr_combo)
+        row2.addStretch()
+        layout.addLayout(row2)
 
-        self.setLayout(self._layout)
+        # 含全屬性
+        self.all_stats_check = QCheckBox("含全屬性")
+        self.all_stats_check.stateChanged.connect(self._update_summary)
+        layout.addWidget(self.all_stats_check)
 
-    def _add_row(self) -> None:
-        row = ConditionRow(len(self._rows))
-        row.btn_delete.clicked.connect(lambda: self._remove_row(row))
-        self._rows.append(row)
-        self._rows_layout.addWidget(row)
+        # 條件預覽
+        self.summary_label = QLabel()
+        self.summary_label.setStyleSheet("color: #666; padding: 4px;")
+        layout.addWidget(self.summary_label)
 
-    def _remove_row(self, row: ConditionRow) -> None:
-        self._rows.remove(row)
-        self._rows_layout.removeWidget(row)
-        row.deleteLater()
+        self.setLayout(layout)
 
-    def get_conditions(self) -> list[TargetCondition]:
-        return [row.to_condition() for row in self._rows]
+        # 初始化
+        self._on_equip_changed(self.equip_combo.currentText())
 
-    def load_conditions(self, conditions: list[TargetCondition]) -> None:
-        # 清除現有
-        for row in self._rows[:]:
-            self._remove_row(row)
-        # 加入新條件
-        for cond in conditions:
-            self._add_row()
-            row = self._rows[-1]
-            row.label.setCurrentIndex(cond.line_index)
-            idx = row.attr_combo.findText(cond.attribute)
-            if idx >= 0:
-                row.attr_combo.setCurrentIndex(idx)
-            op_idx = row.op_combo.findText(cond.operator)
-            if op_idx >= 0:
-                row.op_combo.setCurrentIndex(op_idx)
-            row.value_spin.setValue(cond.value)
+    def _on_equip_changed(self, equip_type: str) -> None:
+        attrs = EQUIPMENT_ATTRIBUTES.get(equip_type, [])
+        self.attr_combo.blockSignals(True)
+        self.attr_combo.clear()
+        self.attr_combo.addItems(attrs)
+        self.attr_combo.blockSignals(False)
+        self._on_attr_changed(self.attr_combo.currentText())
+
+    def _on_attr_changed(self, attr: str) -> None:
+        equip = self.equip_combo.currentText()
+        # 全屬性 checkbox 只在 STR/DEX/INT/LUK 時顯示
+        can_all_stats = attr in STATS_WITH_ALL_STATS and equip not in GLOVE_TYPES
+        # 手套也可以含全屬性（第2、3行）
+        if equip in GLOVE_TYPES and attr in STATS_WITH_ALL_STATS:
+            can_all_stats = True
+        self.all_stats_check.setVisible(can_all_stats)
+        if not can_all_stats:
+            self.all_stats_check.setChecked(False)
+        self._update_summary()
+
+    def _update_summary(self) -> None:
+        config = AppConfig(
+            equipment_type=self.equip_combo.currentText(),
+            target_attribute=self.attr_combo.currentText(),
+            include_all_stats=self.all_stats_check.isChecked(),
+        )
+        lines = generate_condition_summary(config)
+        self.summary_label.setText("\n".join(lines))
+
+    def apply_to_config(self, config: AppConfig) -> None:
+        config.equipment_type = self.equip_combo.currentText()
+        config.target_attribute = self.attr_combo.currentText()
+        config.include_all_stats = self.all_stats_check.isChecked()
+
+    def load_from_config(self, config: AppConfig) -> None:
+        idx = self.equip_combo.findText(config.equipment_type)
+        if idx >= 0:
+            self.equip_combo.setCurrentIndex(idx)
+        attr_idx = self.attr_combo.findText(config.target_attribute)
+        if attr_idx >= 0:
+            self.attr_combo.setCurrentIndex(attr_idx)
+        self.all_stats_check.setChecked(config.include_all_stats)
