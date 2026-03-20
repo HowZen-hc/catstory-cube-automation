@@ -132,6 +132,28 @@ class TestParsePotentialLines:
         assert lines[0].attribute == "物理攻擊力%"
         assert lines[0].value == 13
 
+    def test_simplified_chinese_fix(self):
+        """簡體字修正：最终→最終, 全国性→全屬性"""
+        lines = parse_potential_lines(["全国性：+7%", "最终傷害：+20%"])
+        assert len(lines) == 2
+        assert lines[0].attribute == "全屬性%"
+        assert lines[0].value == 7
+        assert lines[1].attribute == "最終傷害%"
+        assert lines[1].value == 20
+
+    def test_positional_order_preserved(self):
+        """結果應按原始文字位置排序，而非 ATTRIBUTE_PATTERNS 順序"""
+        lines = parse_potential_lines(["最終傷害：+20%", "STR：+9%"])
+        assert len(lines) == 2
+        assert lines[0].attribute == "最終傷害%"
+        assert lines[1].attribute == "STR%"
+
+    def test_pet_cube_ocr_misread(self):
+        """實際萌獸方塊 OCR 結果（含簡繁混雜）"""
+        lines = parse_potential_lines(["全国性：+20", "DEX", "最终傷害：+20%", "：+14%"])
+        attrs = [l.attribute for l in lines]
+        assert "最終傷害%" in attrs
+
 
 class TestConditionCheckerArmor250:
     """永恆裝備 STR 含全屬性"""

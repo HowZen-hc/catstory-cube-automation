@@ -40,6 +40,11 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("攻擊カ", "攻擊力"),
     ("傷宝", "傷害"),
     ("屬住", "屬性"),
+    # 簡體 → 繁體
+    ("最终", "最終"),
+    ("全国性", "全屬性"),
+    ("伤害", "傷害"),
+    ("属性", "屬性"),
 ]
 
 
@@ -74,27 +79,32 @@ def parse_potential_lines(raw_texts: list[str]) -> list[PotentialLine]:
 
     OCR 經常把一行潛能拆成多段（如 ['STR', '+9%']），
     這裡先合併成一整段文字，再用 regex 抽出所有匹配的潛能。
+    結果按照原始文字中的出現位置排序。
     """
     merged = " ".join(raw_texts)
     merged = _fix_ocr_text(merged)
 
-    results: list[PotentialLine] = []
+    # (position, PotentialLine) — 保留位置用於排序
+    found: list[tuple[int, PotentialLine]] = []
 
     # 文字型屬性
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
-        if pattern.search(merged):
-            results.append(PotentialLine(attribute=attr_name, value=0, raw_text=merged))
+        m = pattern.search(merged)
+        if m:
+            found.append((m.start(), PotentialLine(attribute=attr_name, value=0, raw_text=merged)))
 
     # 數值型屬性：找出所有匹配
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         for match in pattern.finditer(merged):
-            results.append(PotentialLine(
+            found.append((match.start(), PotentialLine(
                 attribute=attr_name,
                 value=int(match.group(1)),
                 raw_text=match.group(0),
-            ))
+            )))
 
-    return results
+    # 按出現位置排序，保留原始行順序
+    found.sort(key=lambda x: x[0])
+    return [line for _, line in found]
 
 
 # ── 數值表 ──────────────────────────────────────────────
