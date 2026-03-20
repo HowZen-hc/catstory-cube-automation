@@ -14,15 +14,11 @@ class SimpleFlowStrategy(CubeStrategy):
     """
 
     def execute_roll(self, roll_number: int) -> RollResult:
-        # 1. 點擊按鈕區域中心
-        if self.config.button_region.is_set():
-            cx = self.config.button_region.x + self.config.button_region.width // 2
-            cy = self.config.button_region.y + self.config.button_region.height // 2
-            logger.info("點擊座標: (%d, %d)", cx, cy)
-            self.mouse.click(cx, cy)
-
-        # 2. 等待彈窗出現後按兩次空白鍵確認（遊戲防呆雙重確認）
+        # 1. 按空白鍵觸發「重新設定」按鈕
+        self.mouse.press_confirm(times=1)
         self.mouse.wait(ms=300)
+
+        # 2. 按兩次空白鍵確認（遊戲防呆雙重確認）
         self.mouse.press_confirm(times=2)
 
         # 3. 等待結果

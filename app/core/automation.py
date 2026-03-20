@@ -4,7 +4,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.condition import ConditionChecker
 from app.core.matcher import TemplateMatcher
-from app.core.mouse import MouseController
+from app.core.mouse import MouseController, focus_game_window
 from app.core.ocr import OCREngine
 from app.core.screen import ScreenCapture
 from app.cube.compare_flow import CompareFlowStrategy
@@ -55,6 +55,12 @@ class AutomationWorker(QThread):
             strategy = SimpleFlowStrategy(
                 self.config, screen, ocr, mouse, matcher, checker
             )
+
+        # 將遊戲視窗拉到前景
+        if not focus_game_window():
+            self.error_occurred.emit("找不到遊戲視窗，請確認遊戲已啟動")
+            self._running = False
+            return
 
         self.status_changed.emit("開始自動洗方塊...")
         roll_number = 0
