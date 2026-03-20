@@ -22,8 +22,8 @@ class CompareFlowStrategy(CubeStrategy):
         # 3. 按三次空白鍵確認（恢復附加方塊需要三次確認）
         self.mouse.press_confirm(times=3)
 
-        # 4. 等待結果
-        self.mouse.wait(ms=300)
+        # 4. 等待結果（使用使用者設定的間隔時間）
+        self.mouse.wait()
 
         # 5. OCR 讀取新潛能
         after_lines = self._read_potential(roll_number)

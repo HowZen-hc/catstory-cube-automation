@@ -18,8 +18,8 @@ class SimpleFlowStrategy(CubeStrategy):
         # 2. 按兩次空白鍵確認（遊戲防呆雙重確認）
         self.mouse.press_confirm(times=2)
 
-        # 3. 等待結果
-        self.mouse.wait(ms=300)
+        # 3. 等待結果（使用使用者設定的間隔時間）
+        self.mouse.wait()
 
         # 4. OCR 讀取潛能
         lines = []
