@@ -6,7 +6,7 @@ class OCREngine:
     """PaddleOCR 3.x 封裝，繁體中文辨識。"""
 
     def __init__(self) -> None:
-        self._ocr = PaddleOCR(lang="chinese_cht")
+        self._ocr = PaddleOCR(lang="chinese_cht", enable_mkldnn=False)
 
     def recognize(self, image: np.ndarray) -> list[str]:
         """對圖片進行 OCR，回傳辨識出的文字列表。"""
