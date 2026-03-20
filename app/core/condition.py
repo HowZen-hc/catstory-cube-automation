@@ -249,10 +249,7 @@ def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
         if lc.attribute == "被動技能2":
             lines.append(f"第{i+1}排: 被動技能2（依照被動技能 2 來增加）")
         else:
-            parts = [f"{lc.attribute} 至少 {lc.min_value}%"]
-            if lc.include_all_stats:
-                parts.append(f"全屬性 至少 {lc.min_value}%")
-            lines.append(f"第{i+1}排: {' 或 '.join(parts)}")
+            lines.append(f"第{i+1}排: {lc.attribute} 至少 {lc.min_value}%")
     return lines
 
 
@@ -372,15 +369,8 @@ class ConditionChecker:
                     return False
             else:
                 target_key = _attr_to_ocr_key(lc.attribute)
-                if lc.include_all_stats:
-                    # 接受目標屬性或全屬性
-                    ok = (line.attribute == target_key and line.value >= lc.min_value) or \
-                         (line.attribute == "全屬性%" and line.value >= lc.min_value)
-                    if not ok:
-                        return False
-                else:
-                    if line.attribute != target_key or line.value < lc.min_value:
-                        return False
+                if line.attribute != target_key or line.value < lc.min_value:
+                    return False
         return True
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
