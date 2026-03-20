@@ -29,29 +29,26 @@ class SettingsPanel(QGroupBox):
     def _init_ui(self) -> None:
         layout = QVBoxLayout()
 
-        # 方塊類型
+        # 方塊類型 + OCR 引擎（同一行）
         row1 = QHBoxLayout()
         row1.addWidget(QLabel("方塊類型:"))
         self.cube_type_combo = QComboBox()
         self.cube_type_combo.addItems(CUBE_TYPES)
         self.cube_type_combo.currentTextChanged.connect(self.cube_type_changed.emit)
         row1.addWidget(self.cube_type_combo)
-        row1.addStretch()
-        layout.addLayout(row1)
-
-        # OCR 引擎
-        row_ocr = QHBoxLayout()
-        row_ocr.addWidget(QLabel("OCR 引擎:"))
+        row1.addSpacing(20)
+        row1.addWidget(QLabel("OCR 引擎:"))
         self.ocr_engine_combo = QComboBox()
         self.ocr_engine_combo.addItems(OCR_ENGINES.keys())
-        row_ocr.addWidget(self.ocr_engine_combo)
-        row_ocr.addStretch()
-        layout.addLayout(row_ocr)
+        row1.addWidget(self.ocr_engine_combo)
+        row1.addStretch()
+        layout.addLayout(row1)
 
         # 螢幕區域
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("螢幕區域:"))
         self.btn_select_potential = QPushButton("框選潛能區域")
+        self.btn_select_potential.setMinimumWidth(200)
         self.btn_select_potential.clicked.connect(self.select_potential_region.emit)
         row2.addWidget(self.btn_select_potential)
         row2.addStretch()
@@ -61,6 +58,7 @@ class SettingsPanel(QGroupBox):
         row3 = QHBoxLayout()
         row3.addWidget(QLabel("每次間隔(ms):"))
         self.delay_spin = QSpinBox()
+        self.delay_spin.setMinimumWidth(120)
         self.delay_spin.setRange(1000, 5000)
         self.delay_spin.setValue(1000)
         self.delay_spin.setSingleStep(100)

@@ -36,7 +36,6 @@ class _CustomRowWidget(QWidget):
         layout.addWidget(self._label)
 
         self.attr_combo = QComboBox()
-        self.attr_combo.setMinimumWidth(150)
         layout.addWidget(self.attr_combo)
 
         self._ge_label = QLabel("至少")
