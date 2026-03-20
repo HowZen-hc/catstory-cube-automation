@@ -1,5 +1,5 @@
-from app.core.condition import ConditionChecker, parse_potential_line
-from app.models.config import AppConfig
+from app.core.condition import ConditionChecker, parse_potential_line, parse_potential_lines
+from app.models.config import AppConfig, LineCondition
 from app.models.potential import PotentialLine
 
 
@@ -99,13 +99,46 @@ class TestParsePotentialLine:
         line = parse_potential_line(text)
         assert line.raw_text == text
 
+    def test_ocr_fix_japanese_kanji(self):
+        """攻撃 → 攻擊 自動修正"""
+        line = parse_potential_line("物理攻撃力 +13%")
+        assert line.attribute == "物理攻擊力%"
+        assert line.value == 13
+
+
+class TestParsePotentialLines:
+    """碎片合併解析"""
+
+    def test_split_fragments(self):
+        """OCR 把 'STR +9%' 拆成 ['STR', '+9%']"""
+        lines = parse_potential_lines(["STR", "+9%"])
+        assert len(lines) == 1
+        assert lines[0].attribute == "STR%"
+        assert lines[0].value == 9
+
+    def test_multiple_lines_merged(self):
+        """多行潛能全部合併後解析"""
+        lines = parse_potential_lines(["STR", "+9%", "DEX+7%", "LUK +6%"])
+        attrs = {l.attribute for l in lines}
+        assert "STR%" in attrs
+        assert "DEX%" in attrs
+        assert "LUK%" in attrs
+        assert len(lines) == 3
+
+    def test_japanese_kanji_fix(self):
+        """攻撃 → 攻擊 修正後能解析"""
+        lines = parse_potential_lines(["物理攻撃力", "+13%"])
+        assert len(lines) == 1
+        assert lines[0].attribute == "物理攻擊力%"
+        assert lines[0].value == 13
+
 
 class TestConditionCheckerArmor250:
     """永恆裝備 STR 含全屬性"""
 
     def _make_checker(self, include_all=True):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250+)",
+            equipment_type="永恆裝備·光輝套裝 (250等+)",
             target_attribute="STR",
             include_all_stats=include_all,
         )
@@ -189,7 +222,7 @@ class TestConditionCheckerArmorSub250:
 
     def test_pass(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="DEX",
             include_all_stats=True,
         )
@@ -203,7 +236,7 @@ class TestConditionCheckerArmorSub250:
 
     def test_fail_line1(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="DEX",
             include_all_stats=True,
         )
@@ -264,7 +297,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_pass(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -278,7 +311,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_double_s(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -292,7 +325,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_crit1_rejected(self):
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -307,7 +340,7 @@ class TestConditionCheckerGlove:
     def test_glove_line1_attr_line2_crit(self):
         """第1行屬性、第2行爆傷也保留"""
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -322,7 +355,7 @@ class TestConditionCheckerGlove:
     def test_glove_all_attr_no_crit(self):
         """手套三行都是屬性也合格"""
         config = AppConfig(
-            equipment_type="手套 (250+)",
+            equipment_type="手套 (永恆)",
             target_attribute="STR",
             include_all_stats=True,
         )
@@ -336,7 +369,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250(self):
         config = AppConfig(
-            equipment_type="手套 (<250)",
+            equipment_type="手套 (非永恆)",
             target_attribute="LUK",
             include_all_stats=True,
         )
@@ -350,7 +383,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250_fail(self):
         config = AppConfig(
-            equipment_type="手套 (<250)",
+            equipment_type="手套 (非永恆)",
             target_attribute="LUK",
             include_all_stats=True,
         )
@@ -366,7 +399,7 @@ class TestConditionCheckerGlove:
 class TestConditionCheckerMaxHP:
     def test_maxhp_250(self):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250+)",
+            equipment_type="永恆裝備·光輝套裝 (250等+)",
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
@@ -379,7 +412,7 @@ class TestConditionCheckerMaxHP:
 
     def test_maxhp_sub250(self):
         config = AppConfig(
-            equipment_type="一般裝備 (<250)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
@@ -483,3 +516,175 @@ class TestConditionCheckerPet:
             PotentialLine("最終傷害%", 20),
         ]
         assert checker.check(lines) is False
+
+
+class TestConditionCheckerCustomMode:
+    """自訂模式測試"""
+
+    def test_custom_all_same_attr_pass(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 3),
+            PotentialLine("STR%", 5),
+            PotentialLine("STR%", 1),
+        ]
+        assert checker.check(lines) is True
+
+    def test_custom_mixed_attrs_pass(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+                LineCondition("全屬性", 2),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    def test_custom_value_too_low(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+                LineCondition("LUK", 2),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 2),  # < 3
+            PotentialLine("LUK%", 6),
+        ]
+        assert checker.check(lines) is False
+
+    def test_custom_wrong_attribute(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 1),
+                LineCondition("DEX", 1),
+                LineCondition("INT", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("LUK%", 7),  # wrong attr
+            PotentialLine("INT%", 6),
+        ]
+        assert checker.check(lines) is False
+
+    def test_custom_passive_skill2(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("最終傷害", 20),
+                LineCondition("最終傷害", 20),
+                LineCondition("被動技能2", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("被動技能2", 0, "依照被動技能 2 來增加"),
+        ]
+        assert checker.check(lines) is True
+
+    def test_custom_passive_skill2_missing(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("最終傷害", 20),
+                LineCondition("最終傷害", 20),
+                LineCondition("被動技能2", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("最終傷害%", 25),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("最終傷害%", 20),
+        ]
+        assert checker.check(lines) is False
+
+    def test_custom_less_than_3_lines(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        assert checker.check([PotentialLine("STR%", 9)]) is False
+
+    def test_custom_low_threshold_for_ocr_testing(self):
+        """低門檻用於 OCR 測試 — 幾乎任何結果都 match。"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+                LineCondition("STR", 1),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 1),
+            PotentialLine("STR%", 1),
+            PotentialLine("STR%", 1),
+        ]
+        assert checker.check(lines) is True
+
+
+class TestConditionCheckerCustomSummary:
+    """自訂模式條件摘要測試"""
+
+    def test_custom_summary(self):
+        from app.core.condition import generate_condition_summary
+
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+                LineCondition("全屬性", 2),
+            ],
+        )
+        lines = generate_condition_summary(config)
+        assert len(lines) == 3
+        assert "STR%" in lines[0]
+        assert ">= 5" in lines[0]
+        assert "DEX%" in lines[1]
+        assert "全屬性%" in lines[2]
+
+    def test_custom_summary_passive(self):
+        from app.core.condition import generate_condition_summary
+
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("最終傷害", 20),
+                LineCondition("最終傷害", 20),
+                LineCondition("被動技能2", 1),
+            ],
+        )
+        lines = generate_condition_summary(config)
+        assert "被動技能2" in lines[2]

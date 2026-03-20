@@ -1,6 +1,6 @@
 import re
 
-from app.models.config import AppConfig
+from app.models.config import AppConfig, LineCondition
 from app.models.potential import PotentialLine
 
 
@@ -33,8 +33,26 @@ TEXT_ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
 }
 
 
+# OCR 常見誤讀修正表
+_OCR_FIXES: list[tuple[str, str]] = [
+    ("攻撃", "攻擊"),  # 日文漢字 → 繁體
+    ("擊カ", "擊力"),
+    ("攻擊カ", "攻擊力"),
+    ("傷宝", "傷害"),
+    ("屬住", "屬性"),
+]
+
+
+def _fix_ocr_text(text: str) -> str:
+    """修正 OCR 常見誤讀字元。"""
+    for wrong, correct in _OCR_FIXES:
+        text = text.replace(wrong, correct)
+    return text
+
+
 def parse_potential_line(text: str) -> PotentialLine:
-    """解析 OCR 文字為 PotentialLine。"""
+    """解析單段 OCR 文字為 PotentialLine。"""
+    text = _fix_ocr_text(text)
     # 先檢查純文字屬性（無數值）
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
         if pattern.search(text):
@@ -51,19 +69,47 @@ def parse_potential_line(text: str) -> PotentialLine:
     return PotentialLine(attribute="未知", value=0, raw_text=text)
 
 
+def parse_potential_lines(raw_texts: list[str]) -> list[PotentialLine]:
+    """將 OCR 碎片合併後解析出所有潛能行。
+
+    OCR 經常把一行潛能拆成多段（如 ['STR', '+9%']），
+    這裡先合併成一整段文字，再用 regex 抽出所有匹配的潛能。
+    """
+    merged = " ".join(raw_texts)
+    merged = _fix_ocr_text(merged)
+
+    results: list[PotentialLine] = []
+
+    # 文字型屬性
+    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(merged):
+            results.append(PotentialLine(attribute=attr_name, value=0, raw_text=merged))
+
+    # 數值型屬性：找出所有匹配
+    for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
+        for match in pattern.finditer(merged):
+            results.append(PotentialLine(
+                attribute=attr_name,
+                value=int(match.group(1)),
+                raw_text=match.group(0),
+            ))
+
+    return results
+
+
 # ── 數值表 ──────────────────────────────────────────────
 
 # (S潛, 罕見) for target attribute
 # (S潛, 罕見) for 全屬性 (None if not applicable)
 THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | None]]] = {
-    "永恆裝備·光輝套裝 (250+)": {
+    "永恆裝備·光輝套裝 (250等+)": {
         "STR": ((9, 7), (7, 6)),
         "DEX": ((9, 7), (7, 6)),
         "INT": ((9, 7), (7, 6)),
         "LUK": ((9, 7), (7, 6)),
         "MaxHP": ((12, 9), None),
     },
-    "一般裝備 (<250)": {
+    "一般裝備 (神秘、漆黑、頂培)": {
         "STR": ((8, 6), (6, 5)),
         "DEX": ((8, 6), (6, 5)),
         "INT": ((8, 6), (6, 5)),
@@ -82,13 +128,13 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
         "物理攻擊力": ((12, 9), None),
         "魔法攻擊力": ((12, 9), None),
     },
-    "手套 (250+)": {
+    "手套 (永恆)": {
         "STR": ((9, 7), (7, 6)),
         "DEX": ((9, 7), (7, 6)),
         "INT": ((9, 7), (7, 6)),
         "LUK": ((9, 7), (7, 6)),
     },
-    "手套 (<250)": {
+    "手套 (非永恆)": {
         "STR": ((8, 6), (6, 5)),
         "DEX": ((8, 6), (6, 5)),
         "INT": ((8, 6), (6, 5)),
@@ -104,13 +150,13 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
 
 # 裝備類型 → 可選屬性
 EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
-    "永恆裝備·光輝套裝 (250+)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
-    "一般裝備 (<250)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "永恆裝備·光輝套裝 (250等+)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "一般裝備 (神秘、漆黑、頂培)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
     "主武器": ["物理攻擊力", "魔法攻擊力"],
     "徽章": ["物理攻擊力", "魔法攻擊力"],
     "輔助武器": ["物理攻擊力", "魔法攻擊力"],
-    "手套 (250+)": ["STR", "DEX", "INT", "LUK"],
-    "手套 (<250)": ["STR", "DEX", "INT", "LUK"],
+    "手套 (永恆)": ["STR", "DEX", "INT", "LUK"],
+    "手套 (非永恆)": ["STR", "DEX", "INT", "LUK"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
 }
 
@@ -120,7 +166,32 @@ EQUIPMENT_TYPES = list(EQUIPMENT_ATTRIBUTES.keys())
 STATS_WITH_ALL_STATS = {"STR", "DEX", "INT", "LUK"}
 
 # 手套類型
-GLOVE_TYPES = {"手套 (250+)", "手套 (<250)"}
+GLOVE_TYPES = {"手套 (永恆)", "手套 (非永恆)"}
+
+# 自訂模式可選屬性（依裝備類型分類）
+CUSTOM_SELECTABLE_ATTRIBUTES: dict[str, list[str]] = {
+    "裝備": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "爆擊傷害"],
+    "武器": ["物理攻擊力", "魔法攻擊力"],
+    "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "被動技能2"],
+}
+
+# 裝備類型 → 自訂模式屬性分類
+_EQUIP_TO_CUSTOM_CATEGORY: dict[str, str] = {
+    "永恆裝備·光輝套裝 (250等+)": "裝備",
+    "一般裝備 (神秘、漆黑、頂培)": "裝備",
+    "主武器": "武器",
+    "徽章": "武器",
+    "輔助武器": "武器",
+    "手套 (永恆)": "裝備",
+    "手套 (非永恆)": "裝備",
+    "萌獸": "萌獸",
+}
+
+
+def get_custom_attributes(equipment_type: str) -> list[str]:
+    """取得該裝備類型在自訂模式可選的屬性列表。"""
+    category = _EQUIP_TO_CUSTOM_CATEGORY.get(equipment_type, "裝備")
+    return CUSTOM_SELECTABLE_ATTRIBUTES[category]
 
 
 def _attr_to_ocr_key(attr: str) -> str:
@@ -130,11 +201,13 @@ def _attr_to_ocr_key(attr: str) -> str:
         "DEX": "DEX%",
         "INT": "INT%",
         "LUK": "LUK%",
+        "全屬性": "全屬性%",
         "MaxHP": "MaxHP%",
         "物理攻擊力": "物理攻擊力%",
         "魔法攻擊力": "魔法攻擊力%",
         "最終傷害": "最終傷害%",
         "加持技能持續時間": "加持技能持續時間%",
+        "爆擊傷害": "爆擊傷害%",
     }
     return mapping.get(attr, attr)
 
@@ -159,8 +232,23 @@ def _check_line(
     return False
 
 
+def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
+    """自訂模式的條件摘要。"""
+    lines = []
+    for i, lc in enumerate(custom_lines):
+        if lc.attribute == "被動技能2":
+            lines.append(f"第{i+1}行: 被動技能2（依照被動技能 2 來增加）")
+        else:
+            ocr_key = _attr_to_ocr_key(lc.attribute)
+            lines.append(f"第{i+1}行: {ocr_key} >= {lc.min_value}")
+    return lines
+
+
 def generate_condition_summary(config: AppConfig) -> list[str]:
     """根據 config 產生人可讀的條件描述（顯示在 UI 上）。"""
+    if not config.use_preset:
+        return _generate_custom_summary(config.custom_lines)
+
     equip = config.equipment_type
     attr = config.target_attribute
     include_all = config.include_all_stats
@@ -209,6 +297,13 @@ class ConditionChecker:
 
     def __init__(self, config: AppConfig) -> None:
         self.config = config
+        self._use_preset = config.use_preset
+
+        if not self._use_preset:
+            self._custom_lines = config.custom_lines
+            self._valid = True
+            return
+
         equip = config.equipment_type
         attr = config.target_attribute
 
@@ -241,6 +336,9 @@ class ConditionChecker:
         if len(lines) < 3:
             return False
 
+        if not self._use_preset:
+            return self._check_custom(lines)
+
         if self._is_雙終被:
             return self._check_雙終被(lines)
 
@@ -257,6 +355,20 @@ class ConditionChecker:
                 accept_crit3=self._is_glove,
             ):
                 return False
+        return True
+
+    def _check_custom(self, lines: list[PotentialLine]) -> bool:
+        """自訂模式：每行用對應的 custom_lines[i] 比對。"""
+        for i in range(3):
+            lc = self._custom_lines[i]
+            line = lines[i]
+            if lc.attribute == "被動技能2":
+                if line.attribute != "被動技能2":
+                    return False
+            else:
+                target_key = _attr_to_ocr_key(lc.attribute)
+                if line.attribute != target_key or line.value < lc.min_value:
+                    return False
         return True
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:

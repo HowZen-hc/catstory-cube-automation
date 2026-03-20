@@ -9,15 +9,18 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+
 from app.models.config import AppConfig
 
 CUBE_TYPES = ["珍貴附加方塊(粉紅色)", "絕對附加方塊", "萌獸方塊", "恢復附加方塊(紅色)"]
+OCR_ENGINES = {"PaddleOCR": "paddle", "Windows OCR": "winocr"}
 
 
 class SettingsPanel(QGroupBox):
-    """設定面板：方塊類型、延遲、快捷鍵、區域框選。"""
+    """設定面板：方塊類型、延遲、區域框選。"""
 
     select_potential_region = pyqtSignal()
+    cube_type_changed = pyqtSignal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__("設定區", parent)
@@ -31,9 +34,19 @@ class SettingsPanel(QGroupBox):
         row1.addWidget(QLabel("方塊類型:"))
         self.cube_type_combo = QComboBox()
         self.cube_type_combo.addItems(CUBE_TYPES)
+        self.cube_type_combo.currentTextChanged.connect(self.cube_type_changed.emit)
         row1.addWidget(self.cube_type_combo)
         row1.addStretch()
         layout.addLayout(row1)
+
+        # OCR 引擎
+        row_ocr = QHBoxLayout()
+        row_ocr.addWidget(QLabel("OCR 引擎:"))
+        self.ocr_engine_combo = QComboBox()
+        self.ocr_engine_combo.addItems(OCR_ENGINES.keys())
+        row_ocr.addWidget(self.ocr_engine_combo)
+        row_ocr.addStretch()
+        layout.addLayout(row_ocr)
 
         # 螢幕區域
         row2 = QHBoxLayout()
@@ -44,9 +57,9 @@ class SettingsPanel(QGroupBox):
         row2.addStretch()
         layout.addLayout(row2)
 
-        # 延遲
+        # 每次洗方塊間隔延遲
         row3 = QHBoxLayout()
-        row3.addWidget(QLabel("延遲(ms):"))
+        row3.addWidget(QLabel("每次間隔(ms):"))
         self.delay_spin = QSpinBox()
         self.delay_spin.setRange(1000, 5000)
         self.delay_spin.setValue(1000)
@@ -55,22 +68,22 @@ class SettingsPanel(QGroupBox):
         row3.addStretch()
         layout.addLayout(row3)
 
-        # 快捷鍵
-        row4 = QHBoxLayout()
-        row4.addWidget(QLabel("快捷鍵:"))
-        self.hotkey_label = QLabel("F9 開始/停止")
-        row4.addWidget(self.hotkey_label)
-        row4.addStretch()
-        layout.addLayout(row4)
-
         self.setLayout(layout)
 
     def apply_to_config(self, config: AppConfig) -> None:
         config.cube_type = self.cube_type_combo.currentText()
         config.delay_ms = self.delay_spin.value()
+        config.ocr_engine = OCR_ENGINES[self.ocr_engine_combo.currentText()]
 
     def load_from_config(self, config: AppConfig) -> None:
         idx = self.cube_type_combo.findText(config.cube_type)
         if idx >= 0:
             self.cube_type_combo.setCurrentIndex(idx)
         self.delay_spin.setValue(config.delay_ms)
+        # 找到 config 中 ocr_engine 值對應的顯示名稱
+        for display_name, engine_key in OCR_ENGINES.items():
+            if engine_key == config.ocr_engine:
+                ocr_idx = self.ocr_engine_combo.findText(display_name)
+                if ocr_idx >= 0:
+                    self.ocr_engine_combo.setCurrentIndex(ocr_idx)
+                break
