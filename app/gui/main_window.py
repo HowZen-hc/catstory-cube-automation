@@ -47,6 +47,9 @@ class MainWindow(QMainWindow):
 
         # 條件編輯器
         self.condition_editor = ConditionEditor()
+        self.settings_panel.cube_type_changed.connect(
+            self.condition_editor.on_cube_type_changed
+        )
         layout.addWidget(self.condition_editor)
 
         # 控制列

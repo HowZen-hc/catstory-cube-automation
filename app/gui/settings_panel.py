@@ -20,6 +20,7 @@ class SettingsPanel(QGroupBox):
     """設定面板：方塊類型、延遲、區域框選。"""
 
     select_potential_region = pyqtSignal()
+    cube_type_changed = pyqtSignal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__("設定區", parent)
@@ -33,6 +34,7 @@ class SettingsPanel(QGroupBox):
         row1.addWidget(QLabel("方塊類型:"))
         self.cube_type_combo = QComboBox()
         self.cube_type_combo.addItems(CUBE_TYPES)
+        self.cube_type_combo.currentTextChanged.connect(self.cube_type_changed.emit)
         row1.addWidget(self.cube_type_combo)
         row1.addStretch()
         layout.addLayout(row1)

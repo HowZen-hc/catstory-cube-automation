@@ -25,6 +25,14 @@ class Region:
 
 
 @dataclass
+class LineCondition:
+    """自訂模式的單行條件。"""
+
+    attribute: str = "STR"
+    min_value: int = 1
+
+
+@dataclass
 class AppConfig:
     """應用程式設定。"""
 
@@ -35,6 +43,10 @@ class AppConfig:
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1000
     ocr_engine: str = "paddle"  # "paddle" or "winocr"
+    use_preset: bool = True
+    custom_lines: list[LineCondition] = field(
+        default_factory=lambda: [LineCondition(), LineCondition(), LineCondition()]
+    )
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         """儲存設定到 JSON 檔案。"""
@@ -53,6 +65,10 @@ class AppConfig:
             return cls()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
+            raw_lines = data.get("custom_lines", [])
+            custom_lines = [
+                LineCondition(**item) for item in raw_lines
+            ] if raw_lines else [LineCondition(), LineCondition(), LineCondition()]
             return cls(
                 cube_type=data.get("cube_type", "珍貴附加方塊(粉紅色)"),
                 equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),
@@ -61,6 +77,8 @@ class AppConfig:
                 potential_region=Region(**data.get("potential_region", {})),
                 delay_ms=data.get("delay_ms", 1000),
                 ocr_engine=data.get("ocr_engine", "paddle"),
+                use_preset=data.get("use_preset", True),
+                custom_lines=custom_lines,
             )
         except (json.JSONDecodeError, TypeError, KeyError):
             logger.exception("設定檔格式錯誤，使用預設值: %s", path)

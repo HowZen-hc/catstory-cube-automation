@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.models.config import AppConfig, Region
+from app.models.config import AppConfig, LineCondition, Region
 
 
 class TestConfigSaveLoad:
@@ -46,3 +46,33 @@ class TestConfigSaveLoad:
         assert config.delay_ms == 1000
         assert config.potential_region.is_set() is False
         assert config.include_all_stats is False
+
+    def test_custom_lines_save_load(self, tmp_path: Path):
+        path = tmp_path / "config.json"
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5),
+                LineCondition("DEX", 3),
+                LineCondition("全屬性", 2),
+            ],
+        )
+        config.save(path)
+        loaded = AppConfig.load(path)
+        assert loaded.use_preset is False
+        assert len(loaded.custom_lines) == 3
+        assert loaded.custom_lines[0].attribute == "STR"
+        assert loaded.custom_lines[0].min_value == 5
+        assert loaded.custom_lines[1].attribute == "DEX"
+        assert loaded.custom_lines[1].min_value == 3
+        assert loaded.custom_lines[2].attribute == "全屬性"
+        assert loaded.custom_lines[2].min_value == 2
+
+    def test_load_without_custom_lines(self, tmp_path: Path):
+        """舊設定檔沒有 custom_lines 欄位，載入時應使用預設值。"""
+        path = tmp_path / "old.json"
+        path.write_text('{"cube_type": "絕對附加方塊"}')
+        config = AppConfig.load(path)
+        assert config.use_preset is True
+        assert len(config.custom_lines) == 3
+        assert config.custom_lines[0].attribute == "STR"
