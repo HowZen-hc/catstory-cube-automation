@@ -1,5 +1,4 @@
 from app.core.condition import parse_potential_line
-from app.core.mouse import focus_game_window
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
 
@@ -12,22 +11,18 @@ class CompareFlowStrategy(CubeStrategy):
     """
 
     def execute_roll(self, roll_number: int) -> RollResult:
-        # 0. 確保遊戲視窗在前景
-        focus_game_window()
-        self.mouse.wait(ms=200)
-
         # 1. OCR 讀取當前（使用前）潛能
         before_lines = self._read_potential()
 
         # 2. 按空白鍵觸發使用方塊
         self.mouse.press_confirm(times=1)
-        self.mouse.wait(ms=300)
+        self.mouse.wait(ms=150)
 
         # 3. 按三次空白鍵確認（恢復附加方塊需要三次確認）
         self.mouse.press_confirm(times=3)
 
         # 4. 等待結果
-        self.mouse.wait()
+        self.mouse.wait(ms=300)
 
         # 5. OCR 讀取新潛能
         after_lines = self._read_potential()
