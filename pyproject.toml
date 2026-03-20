@@ -3,7 +3,7 @@ name = "catstory-cube-automation"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "mss>=10.1.0",
     "numpy>=2.4.3",
@@ -11,7 +11,7 @@ dependencies = [
     "paddleocr>=3.4.0",
     "paddlepaddle>=3.3.0",
     "pyqt6>=6.10.2",
-    "winocr>=0.2.0",
+    "winocr>=0.2.0; sys_platform == 'win32'",
 ]
 
 [dependency-groups]
