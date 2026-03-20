@@ -23,8 +23,8 @@ class CompareFlowStrategy(CubeStrategy):
         self.mouse.press_confirm(times=1)
         self.mouse.wait(ms=300)
 
-        # 3. 按兩次空白鍵確認（遊戲防呆雙重確認）
-        self.mouse.press_confirm(times=2)
+        # 3. 按三次空白鍵確認（恢復附加方塊需要三次確認）
+        self.mouse.press_confirm(times=3)
 
         # 4. 等待結果
         self.mouse.wait()
