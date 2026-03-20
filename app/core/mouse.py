@@ -13,19 +13,34 @@ pyautogui.FAILSAFE = False
 
 # Windows API 常數
 _VK_SPACE = 0x20
+_WM_KEYDOWN = 0x0100
+_WM_KEYUP = 0x0101
 _KEYEVENTF_KEYUP = 0x0002
 _GAME_WINDOW_TITLE = "貓貓TMS"
 
+# 遊戲視窗 handle 快取
+_game_hwnd: int = 0
 
-def _press_key(vk_code: int) -> None:
-    """透過 Windows API keybd_event 發送按鍵。"""
-    ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(vk_code, 0, _KEYEVENTF_KEYUP, 0)
+
+def _find_game_hwnd() -> int:
+    """取得遊戲視窗 handle，找到後快取。"""
+    global _game_hwnd
+    hwnd = ctypes.windll.user32.FindWindowW(None, _GAME_WINDOW_TITLE)
+    if hwnd:
+        _game_hwnd = hwnd
+    return hwnd
+
+
+def _press_key_to_window(hwnd: int, vk_code: int) -> None:
+    """透過 PostMessage 直接對目標視窗發送按鍵，不需焦點。"""
+    ctypes.windll.user32.PostMessageW(hwnd, _WM_KEYDOWN, vk_code, 0)
+    time.sleep(0.05)
+    ctypes.windll.user32.PostMessageW(hwnd, _WM_KEYUP, vk_code, 0)
 
 
 def focus_game_window() -> bool:
     """將遊戲視窗拉到前景，回傳是否成功。"""
-    hwnd = ctypes.windll.user32.FindWindowW(None, _GAME_WINDOW_TITLE)
+    hwnd = _find_game_hwnd()
     if not hwnd:
         logger.warning("找不到遊戲視窗: %s", _GAME_WINDOW_TITLE)
         return False
@@ -44,11 +59,15 @@ class MouseController:
         pyautogui.click(x, y)
 
     def press_confirm(self, times: int = 1) -> None:
-        """按下空白鍵確認（遊戲防呆），使用 Windows API 發送。"""
+        """按下空白鍵確認（遊戲防呆），直接發送到遊戲視窗。"""
+        hwnd = _game_hwnd or _find_game_hwnd()
+        if not hwnd:
+            logger.warning("press_confirm: 找不到遊戲視窗")
+            return
         for i in range(times):
             if i > 0:
                 time.sleep(0.2)
-            _press_key(_VK_SPACE)
+            _press_key_to_window(hwnd, _VK_SPACE)
 
     def move(self, x: int, y: int) -> None:
         """移動到指定座標。"""
