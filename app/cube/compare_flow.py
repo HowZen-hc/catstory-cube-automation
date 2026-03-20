@@ -4,7 +4,7 @@ from app.models.potential import PotentialLine, RollResult
 
 
 class CompareFlowStrategy(CubeStrategy):
-    """Flow B：恢復方塊，需前後比較決定保留。
+    """Flow B：恢復附加方塊(紅色)，需前後比較決定保留。
 
     流程：OCR 讀取當前潛能 → 使用方塊 → 等待結果
           → OCR 讀取新潛能 → 比較 → 點「使用」或「取消」

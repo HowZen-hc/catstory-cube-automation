@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleFlowStrategy(CubeStrategy):
-    """Flow A：珍貴/絕對/萌獸方塊，直接洗。
+    """Flow A：珍貴附加方塊/絕對附加方塊/萌獸方塊，直接洗。
 
     流程：使用方塊 → 等待結果 → OCR 讀取潛能 → 判斷條件
     """
