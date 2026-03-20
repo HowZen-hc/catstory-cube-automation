@@ -14,6 +14,7 @@ from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
     GLOVE_TYPES,
+    STATS_WITH_ALL_STATS,
     generate_condition_summary,
     get_custom_attributes,
 )
