@@ -30,6 +30,7 @@ class LineCondition:
 
     attribute: str = "STR"
     min_value: int = 1
+    include_all_stats: bool = False
 
 
 @dataclass
@@ -45,7 +46,7 @@ class AppConfig:
     ocr_engine: str = "paddle"  # "paddle" or "winocr"
     use_preset: bool = True
     custom_lines: list[LineCondition] = field(
-        default_factory=lambda: [LineCondition(), LineCondition(), LineCondition()]
+        default_factory=lambda: [LineCondition()]
     )
 
     def save(self, path: Path = CONFIG_PATH) -> None:
@@ -68,7 +69,7 @@ class AppConfig:
             raw_lines = data.get("custom_lines", [])
             custom_lines = [
                 LineCondition(**item) for item in raw_lines
-            ] if raw_lines else [LineCondition(), LineCondition(), LineCondition()]
+            ] if raw_lines else [LineCondition()]
             return cls(
                 cube_type=data.get("cube_type", "珍貴附加方塊(粉紅色)"),
                 equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),

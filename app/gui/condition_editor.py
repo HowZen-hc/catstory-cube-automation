@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -18,6 +19,60 @@ from app.core.condition import (
     get_custom_attributes,
 )
 from app.models.config import AppConfig, LineCondition
+
+_MAX_CUSTOM_ROWS = 3
+
+
+class _CustomRowWidget(QWidget):
+    """自訂模式的單排條件 widget。"""
+
+    def __init__(self, index: int, removable: bool, parent=None) -> None:
+        super().__init__(parent)
+        self.index = index
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self._label = QLabel(f"第{index + 1}排:")
+        layout.addWidget(self._label)
+
+        self.attr_combo = QComboBox()
+        self.attr_combo.setMinimumWidth(150)
+        layout.addWidget(self.attr_combo)
+
+        self._ge_label = QLabel("至少")
+        layout.addWidget(self._ge_label)
+
+        self.value_spin = QSpinBox()
+        self.value_spin.setRange(1, 99)
+        self.value_spin.setValue(1)
+        self.value_spin.setSingleStep(1)
+        self.value_spin.setSuffix(" %")
+        layout.addWidget(self.value_spin)
+
+        self.all_stats_check = QCheckBox("含全屬性")
+        self.all_stats_check.setVisible(False)
+        layout.addWidget(self.all_stats_check)
+
+        self.remove_btn = QPushButton("✕")
+        self.remove_btn.setFixedWidth(28)
+        self.remove_btn.setVisible(removable)
+        layout.addWidget(self.remove_btn)
+
+        layout.addStretch()
+        self.setLayout(layout)
+
+    def update_label(self, index: int) -> None:
+        self.index = index
+        self._label.setText(f"第{index + 1}排:")
+
+    def update_visibility(self) -> None:
+        """根據屬性更新 spin 和 all_stats checkbox 顯示。"""
+        attr = self.attr_combo.currentText()
+        self.value_spin.setVisible(attr != "被動技能2")
+        self._ge_label.setVisible(attr != "被動技能2")
+        self.all_stats_check.setVisible(attr in STATS_WITH_ALL_STATS)
+        if attr not in STATS_WITH_ALL_STATS:
+            self.all_stats_check.setChecked(False)
 
 
 class ConditionEditor(QGroupBox):
@@ -74,40 +129,22 @@ class ConditionEditor(QGroupBox):
 
         # === 自訂模式 widgets ===
         self._custom_widget = QWidget()
-        custom_layout = QVBoxLayout()
-        custom_layout.setContentsMargins(0, 0, 0, 0)
+        self._custom_layout = QVBoxLayout()
+        self._custom_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._custom_attr_combos: list[QComboBox] = []
-        self._custom_value_spins: list[QSpinBox] = []
+        self._custom_rows: list[_CustomRowWidget] = []
 
-        for i in range(3):
-            row = QHBoxLayout()
-            row.addWidget(QLabel(f"第{i+1}行:"))
+        # 新增條件排按鈕
+        self._add_row_btn = QPushButton("+ 新增條件排")
+        self._add_row_btn.clicked.connect(self._add_custom_row)
+        self._custom_layout.addWidget(self._add_row_btn)
 
-            attr_combo = QComboBox()
-            attr_combo.setMinimumWidth(150)
-            attr_combo.currentTextChanged.connect(self._on_custom_changed)
-            row.addWidget(attr_combo)
-
-            row.addWidget(QLabel(">="))
-
-            value_spin = QSpinBox()
-            value_spin.setRange(1, 99)
-            value_spin.setValue(1)
-            value_spin.setSingleStep(1)
-            value_spin.setSuffix(" %")
-            value_spin.valueChanged.connect(self._on_custom_changed)
-            row.addWidget(value_spin)
-
-            row.addStretch()
-            custom_layout.addLayout(row)
-
-            self._custom_attr_combos.append(attr_combo)
-            self._custom_value_spins.append(value_spin)
-
-        self._custom_widget.setLayout(custom_layout)
+        self._custom_widget.setLayout(self._custom_layout)
         self._custom_widget.setVisible(False)
         layout.addWidget(self._custom_widget)
+
+        # 初始建立 1 排
+        self._add_custom_row()
 
         # 條件預覽
         self.summary_label = QLabel()
@@ -118,6 +155,57 @@ class ConditionEditor(QGroupBox):
 
         # 初始化
         self._on_equip_changed(self.equip_combo.currentText())
+
+    # ── 自訂模式動態排管理 ──
+
+    def _add_custom_row(self, lc: LineCondition | None = None) -> _CustomRowWidget:
+        """新增一排自訂條件。"""
+        index = len(self._custom_rows)
+        removable = index > 0  # 第一排不可移除
+        row = _CustomRowWidget(index, removable)
+
+        # 填入屬性選單
+        equip = self.equip_combo.currentText()
+        custom_attrs = get_custom_attributes(equip)
+        row.attr_combo.addItems(custom_attrs)
+
+        if lc:
+            cidx = row.attr_combo.findText(lc.attribute)
+            if cidx >= 0:
+                row.attr_combo.setCurrentIndex(cidx)
+            row.value_spin.setValue(lc.min_value)
+            row.all_stats_check.setChecked(lc.include_all_stats)
+
+        # 連接 signals
+        row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
+        row.value_spin.valueChanged.connect(self._on_custom_changed)
+        row.all_stats_check.stateChanged.connect(self._on_custom_changed)
+        row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
+
+        self._custom_rows.append(row)
+        # 插在 add 按鈕之前
+        self._custom_layout.insertWidget(self._custom_layout.count() - 1, row)
+
+        self._update_add_btn_visibility()
+        row.update_visibility()
+        self._update_summary()
+        return row
+
+    def _remove_custom_row(self, row: _CustomRowWidget) -> None:
+        """移除一排自訂條件。"""
+        if row in self._custom_rows:
+            self._custom_rows.remove(row)
+            self._custom_layout.removeWidget(row)
+            row.deleteLater()
+            # 重新編號
+            for i, r in enumerate(self._custom_rows):
+                r.update_label(i)
+                r.remove_btn.setVisible(i > 0)
+            self._update_add_btn_visibility()
+            self._update_summary()
+
+    def _update_add_btn_visibility(self) -> None:
+        self._add_row_btn.setVisible(len(self._custom_rows) < _MAX_CUSTOM_ROWS)
 
     # ── 萌獸方塊連動 ──
 
@@ -168,26 +256,32 @@ class ConditionEditor(QGroupBox):
     def _refresh_custom_attr_combos(self, equip_type: str) -> None:
         """根據裝備類型更新自訂模式的屬性下拉選單。"""
         custom_attrs = get_custom_attributes(equip_type)
-        for combo in self._custom_attr_combos:
-            combo.blockSignals(True)
-            prev = combo.currentText()
-            combo.clear()
-            combo.addItems(custom_attrs)
-            # 嘗試恢復先前選擇
-            idx = combo.findText(prev)
+        for row in self._custom_rows:
+            row.attr_combo.blockSignals(True)
+            prev = row.attr_combo.currentText()
+            row.attr_combo.clear()
+            row.attr_combo.addItems(custom_attrs)
+            idx = row.attr_combo.findText(prev)
             if idx >= 0:
-                combo.setCurrentIndex(idx)
-            combo.blockSignals(False)
-        self._update_custom_spin_visibility()
-
-    def _on_custom_changed(self) -> None:
-        self._update_custom_spin_visibility()
+                row.attr_combo.setCurrentIndex(idx)
+            row.attr_combo.blockSignals(False)
+            row.update_visibility()
         self._update_summary()
 
-    def _update_custom_spin_visibility(self) -> None:
-        """被動技能2 不需要數值，隱藏 spin。"""
-        for combo, spin in zip(self._custom_attr_combos, self._custom_value_spins):
-            spin.setVisible(combo.currentText() != "被動技能2")
+    def _on_custom_attr_changed(self, attr: str) -> None:
+        """自訂模式屬性變更：更新 visibility + 最終傷害預設值。"""
+        # 找到觸發的 row
+        sender = self.sender()
+        for row in self._custom_rows:
+            if row.attr_combo is sender:
+                row.update_visibility()
+                if attr == "最終傷害":
+                    row.value_spin.setValue(20)
+                break
+        self._update_summary()
+
+    def _on_custom_changed(self) -> None:
+        self._update_summary()
 
     # ── 條件預覽 ──
 
@@ -206,10 +300,11 @@ class ConditionEditor(QGroupBox):
                 use_preset=True,
             )
         custom_lines = []
-        for combo, spin in zip(self._custom_attr_combos, self._custom_value_spins):
+        for row in self._custom_rows:
             custom_lines.append(LineCondition(
-                attribute=combo.currentText(),
-                min_value=spin.value(),
+                attribute=row.attr_combo.currentText(),
+                min_value=row.value_spin.value(),
+                include_all_stats=row.all_stats_check.isChecked(),
             ))
         return AppConfig(
             equipment_type=self.equip_combo.currentText(),
@@ -226,10 +321,11 @@ class ConditionEditor(QGroupBox):
         config.use_preset = self.preset_check.isChecked()
         config.custom_lines = [
             LineCondition(
-                attribute=combo.currentText(),
-                min_value=spin.value(),
+                attribute=row.attr_combo.currentText(),
+                min_value=row.value_spin.value(),
+                include_all_stats=row.all_stats_check.isChecked(),
             )
-            for combo, spin in zip(self._custom_attr_combos, self._custom_value_spins)
+            for row in self._custom_rows
         ]
 
     def load_from_config(self, config: AppConfig) -> None:
@@ -241,11 +337,16 @@ class ConditionEditor(QGroupBox):
             self.attr_combo.setCurrentIndex(attr_idx)
         self.all_stats_check.setChecked(config.include_all_stats)
         self.preset_check.setChecked(config.use_preset)
-        # 載入自訂條件
-        for i, lc in enumerate(config.custom_lines[:3]):
-            combo = self._custom_attr_combos[i]
-            cidx = combo.findText(lc.attribute)
-            if cidx >= 0:
-                combo.setCurrentIndex(cidx)
-            self._custom_value_spins[i].setValue(lc.min_value)
-        self._update_custom_spin_visibility()
+
+        # 載入自訂條件：先清除所有排，再依 config 重建
+        while self._custom_rows:
+            row = self._custom_rows.pop()
+            self._custom_layout.removeWidget(row)
+            row.deleteLater()
+
+        for lc in config.custom_lines[:_MAX_CUSTOM_ROWS]:
+            self._add_custom_row(lc)
+
+        # 若 config 沒有任何自訂排，至少建 1 排
+        if not self._custom_rows:
+            self._add_custom_row()
