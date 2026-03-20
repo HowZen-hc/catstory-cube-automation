@@ -217,7 +217,8 @@ class ConditionEditor(QGroupBox):
                 self.equip_combo.setCurrentIndex(idx)
             self._equip_row.setVisible(False)
         else:
-            self._equip_row.setVisible(True)
+            if not self._equip_row.isVisible():
+                self._equip_row.setVisible(True)
 
     # ── 預設/自訂切換 ──
 
@@ -236,8 +237,8 @@ class ConditionEditor(QGroupBox):
         self.attr_combo.addItems(attrs)
         self.attr_combo.blockSignals(False)
         self._on_attr_changed(self.attr_combo.currentText())
-        # 更新自訂模式的屬性選單
-        self._refresh_custom_attr_combos(equip_type)
+        # 切換裝備類型時重設自訂排為 1 排
+        self._reset_custom_rows()
 
     def _on_attr_changed(self, attr: str) -> None:
         equip = self.equip_combo.currentText()
@@ -267,6 +268,14 @@ class ConditionEditor(QGroupBox):
             row.attr_combo.blockSignals(False)
             row.update_visibility()
         self._update_summary()
+
+    def _reset_custom_rows(self) -> None:
+        """清除所有自訂排，重建 1 排（使用新裝備類型的預設屬性）。"""
+        while self._custom_rows:
+            row = self._custom_rows.pop()
+            self._custom_layout.removeWidget(row)
+            row.deleteLater()
+        self._add_custom_row()
 
     def _on_custom_attr_changed(self, attr: str) -> None:
         """自訂模式屬性變更：更新 visibility + 最終傷害預設值。"""
