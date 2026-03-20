@@ -28,7 +28,7 @@ class Region:
 class AppConfig:
     """應用程式設定。"""
 
-    cube_type: str = "珍貴"  # 珍貴, 絕對, 萌獸, 恢復
+    cube_type: str = "珍貴附加方塊(粉紅色)"
     equipment_type: str = "永恆裝備·光輝套裝 (250+)"
     target_attribute: str = "STR"
     include_all_stats: bool = False  # 含全屬性
@@ -55,7 +55,7 @@ class AppConfig:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             return cls(
-                cube_type=data.get("cube_type", "珍貴"),
+                cube_type=data.get("cube_type", "珍貴附加方塊(粉紅色)"),
                 equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250+)"),
                 target_attribute=data.get("target_attribute", "STR"),
                 include_all_stats=data.get("include_all_stats", False),

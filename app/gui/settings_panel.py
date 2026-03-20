@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 
 from app.models.config import AppConfig
 
-CUBE_TYPES = ["珍貴", "絕對", "萌獸", "恢復"]
+CUBE_TYPES = ["珍貴附加方塊(粉紅色)", "絕對附加方塊", "萌獸方塊", "恢復附加方塊(紅色)"]
 
 
 class SettingsPanel(QGroupBox):
