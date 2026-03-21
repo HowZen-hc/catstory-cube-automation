@@ -602,15 +602,15 @@ class TestConditionCheckerPet:
 
 
 class TestConditionCheckerCustomMode:
-    """自訂模式測試"""
+    """自訂模式測試（指定位置）"""
 
     def test_custom_all_same_attr_pass(self):
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
+                LineCondition("STR", 1, position=1),
+                LineCondition("STR", 1, position=2),
+                LineCondition("STR", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -625,9 +625,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 5),
-                LineCondition("DEX", 3),
-                LineCondition("全屬性", 2),
+                LineCondition("STR", 5, position=1),
+                LineCondition("DEX", 3, position=2),
+                LineCondition("全屬性", 2, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -642,9 +642,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 5),
-                LineCondition("DEX", 3),
-                LineCondition("LUK", 2),
+                LineCondition("STR", 5, position=1),
+                LineCondition("DEX", 3, position=2),
+                LineCondition("LUK", 2, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -659,9 +659,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 1),
-                LineCondition("DEX", 1),
-                LineCondition("INT", 1),
+                LineCondition("STR", 1, position=1),
+                LineCondition("DEX", 1, position=2),
+                LineCondition("INT", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -676,9 +676,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("最終傷害", 20),
-                LineCondition("最終傷害", 20),
-                LineCondition("被動技能2", 1),
+                LineCondition("最終傷害", 20, position=1),
+                LineCondition("最終傷害", 20, position=2),
+                LineCondition("被動技能2", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -693,9 +693,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("最終傷害", 20),
-                LineCondition("最終傷害", 20),
-                LineCondition("被動技能2", 1),
+                LineCondition("最終傷害", 20, position=1),
+                LineCondition("最終傷害", 20, position=2),
+                LineCondition("被動技能2", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -710,9 +710,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
+                LineCondition("STR", 1, position=1),
+                LineCondition("STR", 1, position=2),
+                LineCondition("STR", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -723,9 +723,9 @@ class TestConditionCheckerCustomMode:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
-                LineCondition("STR", 1),
+                LineCondition("STR", 1, position=1),
+                LineCondition("STR", 1, position=2),
+                LineCondition("STR", 1, position=3),
             ],
         )
         checker = ConditionChecker(config)
@@ -873,22 +873,24 @@ class TestPresetPermutationCheck:
 class TestConditionCheckerCustomSummary:
     """自訂模式條件摘要測試"""
 
-    def test_custom_summary(self):
+    def test_custom_summary_with_position(self):
         from app.core.condition import generate_condition_summary
 
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 5),
-                LineCondition("DEX", 3),
-                LineCondition("全屬性", 2),
+                LineCondition("STR", 5, position=1),
+                LineCondition("DEX", 3, position=2),
+                LineCondition("全屬性", 2, position=0),
             ],
         )
         lines = generate_condition_summary(config)
         assert len(lines) == 3
         assert "第1排" in lines[0]
         assert "STR 至少 5%" in lines[0]
+        assert "第2排" in lines[1]
         assert "DEX 至少 3%" in lines[1]
+        assert "任意一排" in lines[2]
         assert "全屬性 至少 2%" in lines[2]
 
     def test_custom_summary_passive(self):
@@ -897,59 +899,207 @@ class TestConditionCheckerCustomSummary:
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("最終傷害", 20),
-                LineCondition("最終傷害", 20),
-                LineCondition("被動技能2", 1),
+                LineCondition("最終傷害", 20, position=1),
+                LineCondition("最終傷害", 20, position=2),
+                LineCondition("被動技能2", 1, position=3),
             ],
         )
         lines = generate_condition_summary(config)
         assert "被動技能2" in lines[2]
         assert "第3排" in lines[2]
 
-class TestConditionCheckerDynamicRows:
-    """自訂模式動態排數測試"""
+    def test_custom_summary_any_position(self):
+        from app.core.condition import generate_condition_summary
 
-    def test_single_row(self):
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[LineCondition("STR", 5)],
-        )
-        checker = ConditionChecker(config)
-        lines = [PotentialLine("STR%", 9)]
-        assert checker.check(lines) is True
-
-    def test_single_row_fail(self):
-        config = AppConfig(
-            use_preset=False,
-            custom_lines=[LineCondition("STR", 5)],
-        )
-        checker = ConditionChecker(config)
-        lines = [PotentialLine("STR%", 4)]
-        assert checker.check(lines) is False
-
-    def test_two_rows(self):
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 5),
-                LineCondition("DEX", 3),
+                LineCondition("STR", 9, position=0),
+            ],
+        )
+        lines = generate_condition_summary(config)
+        assert len(lines) == 1
+        assert "任意一排" in lines[0]
+        assert "STR 至少 9%" in lines[0]
+
+class TestConditionCheckerDynamicRows:
+    """自訂模式動態排數測試（現在需要固定 3 行 OCR）"""
+
+    def test_single_condition_any_position(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 5, position=0)],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+        ]
+        assert checker.check(lines) is True
+
+    def test_single_condition_any_position_fail(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 5, position=0)],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 4),
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+        ]
+        assert checker.check(lines) is False
+
+    def test_two_conditions_specified_positions(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5, position=1),
+                LineCondition("DEX", 3, position=2),
             ],
         )
         checker = ConditionChecker(config)
         lines = [
             PotentialLine("STR%", 9),
             PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
         ]
         assert checker.check(lines) is True
 
-    def test_two_rows_not_enough_lines(self):
+    def test_not_enough_ocr_lines(self):
         config = AppConfig(
             use_preset=False,
             custom_lines=[
-                LineCondition("STR", 5),
-                LineCondition("DEX", 3),
+                LineCondition("STR", 5, position=1),
             ],
         )
         checker = ConditionChecker(config)
         lines = [PotentialLine("STR%", 9)]
         assert checker.check(lines) is False
+
+
+class TestConditionCheckerCustomAnyPosition:
+    """自訂模式 position=0（任意一排）測試"""
+
+    def test_any_position_hit_first_line(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 9, position=0)],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+        ]
+        assert checker.check(lines) is True
+
+    def test_any_position_hit_third_line(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 9, position=0)],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+            PotentialLine("STR%", 9),
+        ]
+        assert checker.check(lines) is True
+
+    def test_any_position_miss(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[LineCondition("STR", 9, position=0)],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+            PotentialLine("INT%", 5),
+        ]
+        assert checker.check(lines) is False
+
+    def test_multiple_any_position_and_logic(self):
+        """多條 任意一排 條件需全部滿足（AND 邏輯）"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5, position=0),
+                LineCondition("DEX", 3, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+        ]
+        assert checker.check(lines) is True
+
+    def test_multiple_any_position_one_missing(self):
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5, position=0),
+                LineCondition("DEX", 3, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("LUK%", 7),
+            PotentialLine("INT%", 2),
+        ]
+        assert checker.check(lines) is False
+
+    def test_mixed_specified_and_any(self):
+        """混合：指定位置 + 任意一排"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 9, position=1),
+                LineCondition("DEX", 3, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("LUK%", 7),
+            PotentialLine("DEX%", 5),
+        ]
+        assert checker.check(lines) is True
+
+    def test_specified_position_wrong_line(self):
+        """指定第2排 STR，但 STR 在第1排 → 失敗"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 9, position=2),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 3),
+            PotentialLine("LUK%", 2),
+        ]
+        assert checker.check(lines) is False
+
+    def test_passive_skill2_any_position(self):
+        """被動技能2 + 任意一排"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("最終傷害", 20, position=0),
+                LineCondition("被動技能2", 1, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("DEX%", 3),
+            PotentialLine("最終傷害%", 20),
+            PotentialLine("被動技能2", 0, "依照被動技能 2 來增加"),
+        ]
+        assert checker.check(lines) is True

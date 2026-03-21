@@ -31,6 +31,7 @@ class LineCondition:
     attribute: str = "STR"
     min_value: int = 1
     include_all_stats: bool = False
+    position: int = 0  # 0=任意一排, 1=第1排, 2=第2排, 3=第3排
 
 
 @dataclass
@@ -67,9 +68,14 @@ class AppConfig:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             raw_lines = data.get("custom_lines", [])
-            custom_lines = [
-                LineCondition(**item) for item in raw_lines
-            ] if raw_lines else [LineCondition()]
+            if raw_lines:
+                custom_lines = []
+                for i, item in enumerate(raw_lines):
+                    if "position" not in item:
+                        item["position"] = i + 1
+                    custom_lines.append(LineCondition(**item))
+            else:
+                custom_lines = [LineCondition()]
             return cls(
                 cube_type=data.get("cube_type", "珍貴附加方塊 (粉紅色)"),
                 equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),

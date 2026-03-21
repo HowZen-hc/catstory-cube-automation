@@ -93,3 +93,38 @@ class TestConfigSaveLoad:
         assert loaded.custom_lines[0].min_value == 9
         assert loaded.custom_lines[1].attribute == "DEX"
         assert loaded.custom_lines[1].min_value == 7
+
+    def test_position_save_load(self, tmp_path: Path):
+        """position 欄位存取。"""
+        path = tmp_path / "config.json"
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 9, position=0),
+                LineCondition("DEX", 7, position=2),
+                LineCondition("INT", 5, position=3),
+            ],
+        )
+        config.save(path)
+        loaded = AppConfig.load(path)
+        assert loaded.custom_lines[0].position == 0
+        assert loaded.custom_lines[1].position == 2
+        assert loaded.custom_lines[2].position == 3
+
+    def test_old_config_without_position(self, tmp_path: Path):
+        """舊 config 無 position → 自動補 position=i+1（保留位置綁定行為）。"""
+        path = tmp_path / "old.json"
+        import json
+        data = {
+            "use_preset": False,
+            "custom_lines": [
+                {"attribute": "STR", "min_value": 9, "include_all_stats": False},
+                {"attribute": "DEX", "min_value": 7, "include_all_stats": False},
+                {"attribute": "INT", "min_value": 5, "include_all_stats": False},
+            ],
+        }
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = AppConfig.load(path)
+        assert loaded.custom_lines[0].position == 1
+        assert loaded.custom_lines[1].position == 2
+        assert loaded.custom_lines[2].position == 3

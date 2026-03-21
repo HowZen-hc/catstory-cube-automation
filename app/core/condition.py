@@ -307,14 +307,18 @@ def _check_line(
     return False
 
 
+_POSITION_LABELS = ["任意一排", "第1排", "第2排", "第3排"]
+
+
 def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
     """自訂模式的條件摘要。"""
     lines = []
-    for i, lc in enumerate(custom_lines):
+    for lc in custom_lines:
+        pos_label = _POSITION_LABELS[lc.position] if lc.position < len(_POSITION_LABELS) else f"第{lc.position}排"
         if lc.attribute == "被動技能2":
-            lines.append(f"第{i+1}排: 被動技能2（依照被動技能 2 來增加）")
+            lines.append(f"{pos_label}: 被動技能2（依照被動技能 2 來增加）")
         else:
-            lines.append(f"第{i+1}排: {lc.attribute} 至少 {lc.min_value}%")
+            lines.append(f"{pos_label}: {lc.attribute} 至少 {lc.min_value}%")
     return lines
 
 
@@ -400,8 +404,7 @@ class ConditionChecker:
         """所有行都符合才回傳 True。"""
         if not self._valid:
             return False
-        required = len(self._custom_lines) if not self._use_preset else 3
-        if len(lines) < required:
+        if len(lines) < 3:
             return False
 
         if not self._use_preset:
@@ -434,17 +437,28 @@ class ConditionChecker:
         return False
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
-        """自訂模式：每行用對應的 custom_lines[i] 比對（位置比對）。"""
-        for i, lc in enumerate(self._custom_lines):
-            line = lines[i]
-            if lc.attribute == "被動技能2":
-                if line.attribute != "被動技能2":
+        """自訂模式：根據 position 決定比對方式。
+
+        position=0: 任意一排符合即可
+        position=1/2/3: 只檢查對應的 OCR 行
+        """
+        for lc in self._custom_lines:
+            if lc.position == 0:
+                if not any(self._match_line(lc, line) for line in lines[:3]):
                     return False
             else:
-                target_key = _attr_to_ocr_key(lc.attribute)
-                if line.attribute != target_key or line.value < lc.min_value:
+                idx = lc.position - 1
+                if idx >= len(lines) or not self._match_line(lc, lines[idx]):
                     return False
         return True
+
+    @staticmethod
+    def _match_line(lc: LineCondition, line: PotentialLine) -> bool:
+        """檢查單行是否符合條件。"""
+        if lc.attribute == "被動技能2":
+            return line.attribute == "被動技能2"
+        target_key = _attr_to_ocr_key(lc.attribute)
+        return line.attribute == target_key and line.value >= lc.min_value
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
         """雙終被：2 行最終傷害 >= 20% + 1 行被動技能2。"""

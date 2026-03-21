@@ -23,8 +23,10 @@ from app.models.config import AppConfig, LineCondition
 _MAX_CUSTOM_ROWS = 3
 
 _MODE_PRESET = "預設規則"
-_MODE_CUSTOM = "自訂（位置比對）"
+_MODE_CUSTOM = "自訂"
 _MODES = [_MODE_PRESET, _MODE_CUSTOM]
+
+_POSITION_OPTIONS = ["任意一排", "第1排", "第2排", "第3排"]
 
 
 class _CustomRowWidget(QWidget):
@@ -36,8 +38,9 @@ class _CustomRowWidget(QWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._label = QLabel(f"第{index + 1}排:")
-        layout.addWidget(self._label)
+        self.position_combo = QComboBox()
+        self.position_combo.addItems(_POSITION_OPTIONS)
+        layout.addWidget(self.position_combo)
 
         self.attr_combo = QComboBox()
         layout.addWidget(self.attr_combo)
@@ -59,10 +62,6 @@ class _CustomRowWidget(QWidget):
 
         layout.addStretch()
         self.setLayout(layout)
-
-    def update_label(self, index: int) -> None:
-        self.index = index
-        self._label.setText(f"第{index + 1}排:")
 
     def update_visibility(self) -> None:
         """根據屬性更新 spin 顯示。"""
@@ -174,10 +173,12 @@ class ConditionEditor(QGroupBox):
             if cidx >= 0:
                 row.attr_combo.setCurrentIndex(cidx)
             row.value_spin.setValue(lc.min_value)
+            row.position_combo.setCurrentIndex(lc.position)
 
         # 連接 signals
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
         row.value_spin.valueChanged.connect(self._on_custom_changed)
+        row.position_combo.currentIndexChanged.connect(self._on_custom_changed)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
 
         self._custom_rows.append(row)
@@ -195,9 +196,7 @@ class ConditionEditor(QGroupBox):
             self._custom_rows.remove(row)
             self._custom_layout.removeWidget(row)
             row.deleteLater()
-            # 重新編號
             for i, r in enumerate(self._custom_rows):
-                r.update_label(i)
                 r.remove_btn.setVisible(i > 0)
             self._update_add_btn_visibility()
             self._update_summary()
@@ -313,6 +312,7 @@ class ConditionEditor(QGroupBox):
             custom_lines.append(LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
+                position=row.position_combo.currentIndex(),
             ))
         return AppConfig(
             equipment_type=self.equip_combo.currentText(),
@@ -332,6 +332,7 @@ class ConditionEditor(QGroupBox):
             LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
+                position=row.position_combo.currentIndex(),
             )
             for row in self._custom_rows
         ]
