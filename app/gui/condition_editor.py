@@ -209,21 +209,19 @@ class ConditionEditor(QGroupBox):
         self._add_row_btn.setVisible(len(self._custom_rows) < _MAX_CUSTOM_ROWS)
 
     def _refresh_any_pos_attr_exclusions(self) -> None:
-        """任意一排的 row 之間互斥：已被其他任意一排選的屬性不可再選。"""
+        """任意一排的 row 之間互斥：按順序處理，先選的保留，後選的排除。"""
         equip = self.equip_combo.currentText()
         all_attrs = get_custom_attributes(equip)
 
-        any_pos_rows = [r for r in self._custom_rows if r.position_combo.currentIndex() == 0]
-
+        # 按 row 順序逐一處理，先來的優先保留
+        taken: set[str] = set()
         for row in self._custom_rows:
             row.attr_combo.blockSignals(True)
             current = row.attr_combo.currentText()
             is_any_pos = row.position_combo.currentIndex() == 0
 
             if is_any_pos:
-                # 排除「其他」任意一排 row 已選的屬性（用 identity 比較，非集合差集）
-                excluded = {r.attr_combo.currentText() for r in any_pos_rows if r is not row}
-                available = [a for a in all_attrs if a not in excluded]
+                available = [a for a in all_attrs if a not in taken]
             else:
                 available = all_attrs
 
@@ -232,6 +230,11 @@ class ConditionEditor(QGroupBox):
             idx = row.attr_combo.findText(current)
             if idx >= 0:
                 row.attr_combo.setCurrentIndex(idx)
+
+            # 記錄這個任意一排 row 最終選了什麼
+            if is_any_pos:
+                taken.add(row.attr_combo.currentText())
+
             row.attr_combo.blockSignals(False)
 
     # ── 萌獸方塊連動 ──
