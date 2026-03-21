@@ -26,6 +26,8 @@ def _format_parsed(parsed: PotentialLine) -> str:
     attr_name = parsed.attribute.removesuffix("%")
     if parsed.attribute.endswith("%"):
         return f"{attr_name} +{parsed.value}%"
+    if parsed.attribute == "技能冷卻時間":
+        return f"{attr_name} -{parsed.value}秒"
     return f"{attr_name} +{parsed.value}"
 
 
