@@ -39,7 +39,7 @@ class AppConfig:
     """應用程式設定。"""
 
     cube_type: str = "珍貴附加方塊 (粉紅色)"
-    equipment_type: str = "永恆裝備·光輝套裝 (250等+)"
+    equipment_type: str = "永恆裝備·光輝套裝"
     target_attribute: str = "STR"
     include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
@@ -79,7 +79,7 @@ class AppConfig:
                 custom_lines = [LineCondition()]
             return cls(
                 cube_type=data.get("cube_type", "珍貴附加方塊 (粉紅色)"),
-                equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),
+                equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝"),
                 target_attribute=data.get("target_attribute", "STR"),
                 include_all_stats=data.get("include_all_stats", False),
                 potential_region=Region(**data.get("potential_region", {})),

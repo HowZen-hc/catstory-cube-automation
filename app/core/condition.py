@@ -286,7 +286,7 @@ def parse_potential_lines(
 # (S潛, 罕見) for target attribute
 # (S潛, 罕見) for 全屬性 (None if not applicable)
 THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | None]]] = {
-    "永恆裝備·光輝套裝 (250等+)": {
+    "永恆裝備·光輝套裝": {
         "STR": ((9, 7), (7, 6)),
         "DEX": ((9, 7), (7, 6)),
         "INT": ((9, 7), (7, 6)),
@@ -348,7 +348,7 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
 
 # 裝備類型 → 可選屬性
 EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
-    "永恆裝備·光輝套裝 (250等+)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "永恆裝備·光輝套裝": ["STR", "DEX", "INT", "LUK", "MaxHP"],
     "一般裝備 (神秘、漆黑、頂培)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
     "主武器": ["物理攻擊力", "魔法攻擊力"],
     "徽章 (米特拉)": ["物理攻擊力", "魔法攻擊力"],
@@ -382,7 +382,7 @@ CUSTOM_SELECTABLE_ATTRIBUTES: dict[str, list[str]] = {
 
 # 裝備類型 → 自訂模式屬性分類
 _EQUIP_TO_CUSTOM_CATEGORY: dict[str, str] = {
-    "永恆裝備·光輝套裝 (250等+)": "裝備",
+    "永恆裝備·光輝套裝": "裝備",
     "一般裝備 (神秘、漆黑、頂培)": "裝備",
     "主武器": "武器",
     "徽章 (米特拉)": "武器",

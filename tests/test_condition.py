@@ -221,7 +221,7 @@ class TestConditionCheckerArmor250:
 
     def _make_checker(self, include_all=True):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250等+)",
+            equipment_type="永恆裝備·光輝套裝",
             target_attribute="STR",
             include_all_stats=include_all,
         )
@@ -482,7 +482,7 @@ class TestConditionCheckerGlove:
 class TestConditionCheckerMaxHP:
     def test_maxhp_250(self):
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250等+)",
+            equipment_type="永恆裝備·光輝套裝",
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
@@ -1029,7 +1029,7 @@ class TestConditionCheckerHat:
     def test_non_hat_no_cooldown(self):
         """非帽子裝備不接受冷卻時間"""
         config = AppConfig(
-            equipment_type="永恆裝備·光輝套裝 (250等+)",
+            equipment_type="永恆裝備·光輝套裝",
             target_attribute="STR",
             include_all_stats=True,
         )

@@ -29,7 +29,7 @@ class TestConfigSaveLoad:
         path = tmp_path / "nonexistent.json"
         config = AppConfig.load(path)
         assert config.cube_type == "珍貴附加方塊 (粉紅色)"
-        assert config.equipment_type == "永恆裝備·光輝套裝 (250等+)"
+        assert config.equipment_type == "永恆裝備·光輝套裝"
         assert config.delay_ms == 1000
 
     def test_load_corrupted_file(self, tmp_path: Path):
