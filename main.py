@@ -3,6 +3,12 @@ import os
 import sys
 import warnings
 
+# 先設定 logging，確保在任何 import 之前生效
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
 # 抑制第三方套件噪音
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 os.environ["PADDLEX_LOG_LEVEL"] = "ERROR"
@@ -15,12 +21,7 @@ from PyQt6.QtWidgets import QApplication
 
 from app.gui.main_window import MainWindow
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-# 將 PaddlePaddle/PaddleX 的 log 層級提高到 WARNING，只保留自己的 INFO log
+# import 後再抑制第三方 logger，避免被套件自身的設定覆蓋
 for _name in ("paddle", "paddlex", "paddleocr", "ppocr"):
     logging.getLogger(_name).setLevel(logging.ERROR)
 
