@@ -21,5 +21,11 @@ class RollResult:
     def summary(self) -> str:
         parts = []
         for line in self.lines:
-            parts.append(f"{line.attribute}+{line.value}%")
+            if line.attribute == "未知":
+                parts.append("(未辨識)")
+            elif line.value == 0:
+                parts.append(line.attribute)
+            else:
+                attr_name = line.attribute.removesuffix("%")
+                parts.append(f"{attr_name} +{line.value}%")
         return " / ".join(parts)

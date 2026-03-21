@@ -73,7 +73,11 @@ class AutomationWorker(QThread):
             texts = ocr.recognize(pot_img)
             lines = parse_potential_lines(texts)
             log_ocr_result(0, texts, lines)
-            if checker.check(lines):
+            matched = checker.check(lines)
+            self.roll_completed.emit(
+                RollResult(roll_number=0, lines=lines, matched=matched)
+            )
+            if matched:
                 self.status_changed.emit("當前潛能已符合目標條件，無需洗方塊")
                 self.target_reached.emit(0)
                 return
