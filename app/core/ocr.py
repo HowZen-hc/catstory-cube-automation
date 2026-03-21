@@ -21,6 +21,11 @@ def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
     # 遊戲為深色底 + 淺色字，若背景偏暗（均值 < 128）則反轉為白底黑字
     if np.mean(binary) < 128:
         binary = cv2.bitwise_not(binary)
+    # 反轉為黑字白底後，對黑字做膨脹（加粗筆畫），防止細筆畫斷裂（如 8→6）
+    binary = cv2.bitwise_not(binary)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    binary = cv2.dilate(binary, kernel, iterations=1)
+    binary = cv2.bitwise_not(binary)
     # 四周補白邊，避免邊緣字母被截斷
     binary = cv2.copyMakeBorder(
         binary, _PADDING_PX, _PADDING_PX, _PADDING_PX, _PADDING_PX,
