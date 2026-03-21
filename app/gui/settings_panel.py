@@ -51,12 +51,13 @@ class SettingsPanel(QGroupBox):
 
         # 每次洗方塊間隔延遲
         row3 = QHBoxLayout()
-        row3.addWidget(QLabel("每次間隔(ms):"))
+        row3.addWidget(QLabel("洗完後等待(ms):"))
         self.delay_spin = QSpinBox()
         self.delay_spin.setMinimumWidth(120)
-        self.delay_spin.setRange(1000, 5000)
+        self.delay_spin.setRange(500, 2000)
         self.delay_spin.setValue(1000)
         self.delay_spin.setSingleStep(100)
+        self.delay_spin.setToolTip("每次洗方塊後等待畫面更新的時間，太低可能截到舊畫面")
         row3.addWidget(self.delay_spin)
         row3.addStretch()
         layout.addLayout(row3)
