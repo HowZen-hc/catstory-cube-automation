@@ -6,7 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.condition import ConditionChecker, parse_potential_lines
 from app.core.mouse import MouseController, focus_game_window
-from app.core.ocr import create_ocr_engine
+from app.core.ocr import create_ocr_engine, get_scale_factor
 from app.core.screen import ScreenCapture
 from app.cube.compare_flow import CompareFlowStrategy
 from app.cube.simple_flow import SimpleFlowStrategy
@@ -73,7 +73,8 @@ class AutomationWorker(QThread):
             t0 = time.perf_counter()
             pot_img = screen.capture(self.config.potential_region)
             t_cap = time.perf_counter()
-            texts = ocr.recognize(pot_img)
+            scale = get_scale_factor(self.config.cube_type)
+            texts = ocr.recognize(pot_img, scale_factor=scale)
             t_ocr = time.perf_counter()
             lines = parse_potential_lines(texts)
             log_ocr_result(0, texts, lines)

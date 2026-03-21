@@ -2,6 +2,7 @@ import logging
 import time
 
 from app.core.condition import parse_potential_lines
+from app.core.ocr import get_scale_factor
 from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import RollResult
@@ -37,7 +38,8 @@ class SimpleFlowStrategy(CubeStrategy):
             t0 = time.perf_counter()
             pot_img = self.screen.capture(self.config.potential_region)
             t_cap = time.perf_counter()
-            texts = self.ocr.recognize(pot_img)
+            scale = get_scale_factor(self.config.cube_type)
+            texts = self.ocr.recognize(pot_img, scale_factor=scale)
             t_ocr = time.perf_counter()
             lines = parse_potential_lines(texts)
             log_ocr_result(roll_number, texts, lines)
