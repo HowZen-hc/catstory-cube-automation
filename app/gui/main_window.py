@@ -2,6 +2,7 @@ import logging
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -114,16 +115,19 @@ class MainWindow(QMainWindow):
         self._worker.roll_completed.connect(self._on_roll_completed)
         self._worker.status_changed.connect(self._on_status_changed)
         self._worker.error_occurred.connect(self._on_error)
+        self._worker.target_reached.connect(self._on_target_reached)
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.start()
 
         self._set_running_ui(True)
 
     def _on_stop(self) -> None:
+        logger.info("使用者按下停止按鈕")
         if self._worker:
             self._worker.stop()
         self.btn_stop.setEnabled(False)
-        self.btn_stop.setText("停止中...")
+        self.btn_stop.setText("⏹ 停止中...")
+        self.btn_stop.setStyleSheet("background-color: #e53935; color: white;")
         self.status_bar.showMessage("正在停止...")
 
     def _on_roll_completed(self, result: RollResult) -> None:
@@ -133,6 +137,10 @@ class MainWindow(QMainWindow):
 
     def _on_status_changed(self, msg: str) -> None:
         self.status_bar.showMessage(msg)
+
+    def _on_target_reached(self, roll_count: int) -> None:
+        QApplication.beep()
+        QMessageBox.information(self, "達成目標", f"達成目標！共洗 {roll_count} 次")
 
     def _on_error(self, msg: str) -> None:
         logger.error("自動化錯誤: %s", msg)
@@ -156,6 +164,7 @@ class MainWindow(QMainWindow):
         self.btn_start.setEnabled(not running)
         self.btn_stop.setEnabled(running)
         self.btn_stop.setText("■ 停止")
+        self.btn_stop.setStyleSheet("")
         self.settings_panel.setEnabled(not running)
         self.condition_editor.setEnabled(not running)
         if running:

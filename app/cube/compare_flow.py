@@ -1,7 +1,11 @@
+import logging
+
 from app.core.condition import parse_potential_lines
 from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
+
+logger = logging.getLogger(__name__)
 
 
 class CompareFlowStrategy(CubeStrategy):
@@ -30,6 +34,7 @@ class CompareFlowStrategy(CubeStrategy):
 
         # 6. 判斷是否符合目標
         matched = self.checker.check(after_lines)
+        logger.info("#%05d 判斷結果: %s", roll_number, "✅ 符合" if matched else "❌ 不符合")
 
         # 7. 比較新舊，決定保留或取消
         if self._is_better(after_lines, before_lines):

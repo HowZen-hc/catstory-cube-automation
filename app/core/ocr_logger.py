@@ -46,15 +46,18 @@ def save_debug_image(roll_number: int, image: np.ndarray) -> None:
 
 def log_ocr_result(
     roll_number: int,
-    raw_texts: list[str],
+    raw_texts: list[tuple[str, float]],
     parsed_lines: list[PotentialLine],
 ) -> None:
     """將 OCR 原始結果與解析結果寫入檔案，供後續建立字典使用。"""
     _ensure_log_dir()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # 抽取文字部分用於顯示
+    text_only = [t for t, _ in raw_texts]
+
     # 同步印到 console：RAW 碎片 + 合併解析結果
-    parts = [f"#{roll_number:05d} RAW={raw_texts}"]
+    parts = [f"#{roll_number:05d} RAW={text_only}"]
     for i, parsed in enumerate(parsed_lines, 1):
         parts.append(f"  L{i}: {_format_parsed(parsed)}")
     logger.info("\n".join(parts))
@@ -63,7 +66,7 @@ def log_ocr_result(
         with OCR_LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] #{roll_number:05d}\n")
             # 原始 OCR 碎片
-            f.write(f"  RAW: {raw_texts}\n")
+            f.write(f"  RAW: {text_only}\n")
             # 合併解析後的結果
             for i, parsed in enumerate(parsed_lines, 1):
                 f.write(f"  L{i}: {_format_parsed(parsed)}")

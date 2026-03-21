@@ -22,6 +22,7 @@ class AutomationWorker(QThread):
     roll_completed = pyqtSignal(RollResult)
     status_changed = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
+    target_reached = pyqtSignal(int)  # 參數為洗了幾次
 
     def __init__(self, config: AppConfig, parent=None) -> None:
         super().__init__(parent)
@@ -97,4 +98,5 @@ class AutomationWorker(QThread):
 
             if result.matched:
                 self.status_changed.emit(f"達成目標！共洗 {roll_number} 次")
+                self.target_reached.emit(roll_number)
                 break

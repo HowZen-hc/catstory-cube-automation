@@ -7,8 +7,8 @@ class OCREngine(ABC):
     """OCR 引擎抽象基類。"""
 
     @abstractmethod
-    def recognize(self, image: np.ndarray) -> list[str]:
-        """對圖片進行 OCR，回傳辨識出的文字列表。"""
+    def recognize(self, image: np.ndarray) -> list[tuple[str, float]]:
+        """對圖片進行 OCR，回傳 (文字, y 中心點) 列表。"""
         ...
 
 
@@ -20,11 +20,17 @@ class PaddleOCREngine(OCREngine):
 
         self._ocr = PaddleOCR(lang="chinese_cht", enable_mkldnn=False)
 
-    def recognize(self, image: np.ndarray) -> list[str]:
+    def recognize(self, image: np.ndarray) -> list[tuple[str, float]]:
         result = self._ocr.predict(image)
         if not result:
             return []
-        return list(result[0].get("rec_texts", []))
+        texts = result[0].get("rec_texts", [])
+        polys = result[0].get("dt_polys", [])
+        out: list[tuple[str, float]] = []
+        for text, poly in zip(texts, polys):
+            y_center = sum(pt[1] for pt in poly) / len(poly)
+            out.append((text, y_center))
+        return out
 
 
 def create_ocr_engine() -> OCREngine:

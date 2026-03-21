@@ -75,37 +75,100 @@ def parse_potential_line(text: str) -> PotentialLine:
     return PotentialLine(attribute="未知", value=0, raw_text=text)
 
 
-def parse_potential_lines(raw_texts: list[str]) -> list[PotentialLine]:
-    """將 OCR 碎片合併後解析出所有潛能行。
-
-    OCR 經常把一行潛能拆成多段（如 ['STR', '+9%']），
-    這裡先合併成一整段文字，再用 regex 抽出所有匹配的潛能。
-    結果按照原始文字中的出現位置排序。
-    """
-    merged = "\n".join(raw_texts)
+def _parse_merged_text(merged: str) -> PotentialLine:
+    """從合併後的文字中解析出一個 PotentialLine。"""
     merged = _fix_ocr_text(merged)
-
-    # (position, PotentialLine) — 保留位置用於排序
-    found: list[tuple[int, PotentialLine]] = []
 
     # 文字型屬性
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(merged):
+            return PotentialLine(attribute=attr_name, value=0, raw_text=merged)
+
+    # 數值型屬性：取第一個匹配
+    best: tuple[int, PotentialLine] | None = None
+    for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         m = pattern.search(merged)
         if m:
-            found.append((m.start(), PotentialLine(attribute=attr_name, value=0, raw_text=merged)))
-
-    # 數值型屬性：找出所有匹配
-    for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
-        for match in pattern.finditer(merged):
-            found.append((match.start(), PotentialLine(
+            candidate = (m.start(), PotentialLine(
                 attribute=attr_name,
-                value=int(match.group(1)),
-                raw_text=match.group(0),
-            )))
+                value=int(m.group(1)),
+                raw_text=m.group(0),
+            ))
+            if best is None or candidate[0] < best[0]:
+                best = candidate
 
-    # 按出現位置排序，保留原始行順序
-    found.sort(key=lambda x: x[0])
-    return [line for _, line in found]
+    if best is not None:
+        return best[1]
+    return PotentialLine(attribute="未知", value=0, raw_text=merged)
+
+
+def _group_fragments_by_y(
+    fragments: list[tuple[str, float]],
+    num_rows: int = 3,
+) -> list[str]:
+    """將 OCR 碎片按 y 座標分群成 num_rows 個物理行。
+
+    按 y_center 排序後，用最大的 (num_rows-1) 個相鄰間距作為切割點。
+    每個群組內的文字合併。不足 num_rows 群時補空字串。
+    """
+    if not fragments:
+        return [""] * num_rows
+
+    sorted_frags = sorted(fragments, key=lambda f: f[1])
+
+    if len(sorted_frags) == 1:
+        rows = [sorted_frags[0][0]]
+        while len(rows) < num_rows:
+            rows.append("")
+        return rows
+
+    # 計算相鄰碎片的 y 距離
+    gaps: list[tuple[float, int]] = []
+    for i in range(len(sorted_frags) - 1):
+        gap = sorted_frags[i + 1][1] - sorted_frags[i][1]
+        gaps.append((gap, i))
+
+    # 找最大的間距作為切割點，只選間距 >= MIN_ROW_GAP 的
+    MIN_ROW_GAP = 5.0
+    gaps_sorted = sorted(gaps, key=lambda g: g[0], reverse=True)
+
+    split_indices: list[int] = []
+    for gap_val, idx in gaps_sorted:
+        if len(split_indices) >= num_rows - 1:
+            break
+        if gap_val >= MIN_ROW_GAP:
+            split_indices.append(idx)
+    split_indices.sort()
+
+    # 按切割點分群
+    groups: list[list[str]] = []
+    start = 0
+    for idx in split_indices:
+        groups.append([f[0] for f in sorted_frags[start : idx + 1]])
+        start = idx + 1
+    groups.append([f[0] for f in sorted_frags[start:]])
+
+    rows = ["".join(g) for g in groups]
+    while len(rows) < num_rows:
+        rows.append("")
+    return rows
+
+
+def parse_potential_lines(
+    raw_texts: list[tuple[str, float]],
+) -> list[PotentialLine]:
+    """將 OCR 碎片按 y 座標分群成 3 個物理行，再逐行解析。
+
+    永遠回傳恰好 3 個 PotentialLine，偵測不到的行填 PotentialLine("未知", 0)。
+    """
+    rows = _group_fragments_by_y(raw_texts, num_rows=3)
+    result: list[PotentialLine] = []
+    for row_text in rows:
+        if not row_text.strip():
+            result.append(PotentialLine(attribute="未知", value=0))
+        else:
+            result.append(_parse_merged_text(row_text))
+    return result
 
 
 # ── 數值表 ──────────────────────────────────────────────
