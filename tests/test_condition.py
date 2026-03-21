@@ -363,7 +363,7 @@ class TestConditionCheckerWeapon:
 
     def test_sub_weapon(self):
         config = AppConfig(
-            equipment_type="輔助武器",
+            equipment_type="輔助武器 (副手)",
             target_attribute="魔法攻擊力",
         )
         checker = ConditionChecker(config)
