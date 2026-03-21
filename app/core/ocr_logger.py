@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 
-from app.core.condition import parse_potential_line
 from app.models.potential import PotentialLine
 
 LOG_DIR = Path("logs")
@@ -54,11 +53,10 @@ def log_ocr_result(
     _ensure_log_dir()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 同步印到 console：逐碎片顯示辨識結果
-    parts = [f"#{roll_number:05d}"]
-    for i, text in enumerate(raw_texts, 1):
-        result = parse_potential_line(text)
-        parts.append(f"  [{i}] {text!r} → {_format_parsed(result)}")
+    # 同步印到 console：RAW 碎片 + 合併解析結果
+    parts = [f"#{roll_number:05d} RAW={raw_texts}"]
+    for i, parsed in enumerate(parsed_lines, 1):
+        parts.append(f"  L{i}: {_format_parsed(parsed)}")
     logger.info("\n".join(parts))
 
     try:
