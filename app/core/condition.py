@@ -31,6 +31,16 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "每級DEX": re.compile(r"以角色等級為準每\d+級\s*DEX\s*\+?\s*(\d+)"),
     "每級INT": re.compile(r"以角色等級為準每\d+級\s*INT\s*\+?\s*(\d+)"),
     "每級LUK": re.compile(r"以角色等級為準每\d+級\s*LUK\s*\+?\s*(\d+)"),
+    # 純數值屬性（非%，紀錄用）
+    "STR": re.compile(r"(?<![a-zA-Z])STR\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "DEX": re.compile(r"(?<![a-zA-Z])DEX\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "INT": re.compile(r"(?<![a-zA-Z])INT\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "LUK": re.compile(r"(?<![a-zA-Z])LUK\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "MaxHP": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "MaxMP": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "物理攻擊力": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "魔法攻擊力": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    "防禦力": re.compile(r"防禦力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
     # 萌獸屬性
     "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -78,6 +88,7 @@ _OCR_FIXES: list[tuple[str, str]] = [
     # 屬性誤讀
     ("勿理", "物理"),
     ("厨性", "屬性"),
+    ("MaxMOP", "MaxMP"),
 ]
 
 

@@ -79,10 +79,10 @@ class TestParsePotentialLine:
         assert line.attribute == "未知"
         assert line.value == 0
 
-    def test_flat_value_not_matched(self):
+    def test_flat_value_matched(self):
         line = parse_potential_line("STR +21")
-        assert line.attribute == "未知"
-        assert line.value == 0
+        assert line.attribute == "STR"
+        assert line.value == 21
 
     def test_fullwidth_colon(self):
         line = parse_potential_line("STR：+9%")
