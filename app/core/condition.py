@@ -20,9 +20,10 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力率]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 萌獸屬性
     "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -47,6 +48,13 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("伤害", "傷害"),
     ("属性", "屬性"),
     ("时间", "時間"),
+    ("恢复", "恢復"),
+    ("衣照", "依照"),
+    ("来增加", "來增加"),
+    ("攻擎", "攻擊"),
+    ("爆机率", "爆擊機率"),
+    ("爆機率", "爆擊機率"),
+    ("机率", "機率"),
 ]
 
 
@@ -161,6 +169,7 @@ def parse_potential_lines(
     """將 OCR 碎片按 y 座標分群成 3 個物理行，再逐行解析。
 
     永遠回傳恰好 3 個 PotentialLine，偵測不到的行填 PotentialLine("未知", 0)。
+    若相鄰行皆為未知，嘗試合併後重新解析（處理 OCR 碎片跨行分割的情況）。
     """
     rows = _group_fragments_by_y(raw_texts, num_rows=3)
     result: list[PotentialLine] = []
@@ -169,6 +178,19 @@ def parse_potential_lines(
             result.append(PotentialLine(attribute="未知", value=0))
         else:
             result.append(_parse_merged_text(row_text))
+
+    # 後處理：相鄰未知行嘗試合併
+    for i in range(len(result) - 1):
+        if result[i].attribute != "未知" or result[i + 1].attribute != "未知":
+            continue
+        if not rows[i].strip() or not rows[i + 1].strip():
+            continue
+        merged = rows[i] + rows[i + 1]
+        parsed = _parse_merged_text(merged)
+        if parsed.attribute != "未知":
+            result[i] = parsed
+            result[i + 1] = PotentialLine(attribute="未知", value=0, raw_text=rows[i + 1])
+
     return result
 
 
@@ -438,28 +460,18 @@ class ConditionChecker:
         return False
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
-        """自訂模式：根據 position 決定比對方式。
-
-        position=0（任意一排）：多條之間為 OR，任一條命中即可
-        position=1/2/3（指定位置）：每條都必須通過（AND）
-        """
-        # 指定位置條件：全部必須通過（AND）
+        """自訂模式：所有條件為 OR，任一條命中即符合。"""
         for lc in self._custom_lines:
-            if lc.position != 0:
+            if lc.position == 0:
+                # 任意一排：檢查所有行
+                if any(self._match_line(lc, line) for line in lines[:3]):
+                    return True
+            else:
+                # 指定位置
                 idx = lc.position - 1
-                if idx >= len(lines) or not self._match_line(lc, lines[idx]):
-                    return False
-
-        # 任意一排條件：至少一條命中即可（OR）
-        any_conds = [lc for lc in self._custom_lines if lc.position == 0]
-        if any_conds:
-            if not any(
-                any(self._match_line(lc, line) for line in lines[:3])
-                for lc in any_conds
-            ):
-                return False
-
-        return True
+                if idx < len(lines) and self._match_line(lc, lines[idx]):
+                    return True
+        return False
 
     @staticmethod
     def _match_line(lc: LineCondition, line: PotentialLine) -> bool:

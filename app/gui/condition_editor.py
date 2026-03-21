@@ -20,7 +20,7 @@ from app.core.condition import (
 )
 from app.models.config import AppConfig, LineCondition
 
-_MAX_CUSTOM_ROWS = 3
+_MAX_CUSTOM_ROWS = 5
 
 _MODE_PRESET = "預設規則"
 _MODE_CUSTOM = "自訂"
@@ -75,6 +75,7 @@ class ConditionEditor(QGroupBox):
 
     def __init__(self, parent=None) -> None:
         super().__init__("目標條件", parent)
+        self._prev_equip: str = ""  # 切換萌獸前的裝備類型
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -209,16 +210,22 @@ class ConditionEditor(QGroupBox):
     def on_cube_type_changed(self, cube_type: str) -> None:
         """當方塊類型改變時由 main_window 呼叫。"""
         if cube_type == "萌獸方塊":
+            # 記住當前裝備類型，切回時還原
+            current = self.equip_combo.currentText()
+            if current != "萌獸":
+                self._prev_equip = current
             # 動態加入萌獸選項並選取
             if self.equip_combo.findText("萌獸") < 0:
                 self.equip_combo.addItem("萌獸")
             self.equip_combo.setCurrentText("萌獸")
             self._equip_row.setVisible(False)
         else:
-            # 移除萌獸選項
+            # 移除萌獸選項，還原之前的裝備類型
             idx = self.equip_combo.findText("萌獸")
             if idx >= 0:
                 self.equip_combo.removeItem(idx)
+            if self._prev_equip:
+                self.equip_combo.setCurrentText(self._prev_equip)
             self._equip_row.setVisible(True)
 
     # ── 模式切換 ──
