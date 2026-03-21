@@ -99,6 +99,12 @@ class TestParsePotentialLine:
         line = parse_potential_line(text)
         assert line.raw_text == text
 
+    def test_ocr_fix_b_to_8(self):
+        """MaxMP+B% → MaxMP+8%"""
+        line = parse_potential_line("MaxMP+B%")
+        assert line.attribute == "MaxMP%"
+        assert line.value == 8
+
     def test_ocr_fix_japanese_kanji(self):
         """攻撃 → 攻擊 自動修正"""
         line = parse_potential_line("物理攻撃力 +13%")

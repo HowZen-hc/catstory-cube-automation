@@ -49,9 +49,10 @@ def log_ocr_result(
 
     # 同步印到 console：RAW 碎片 + 合併解析結果
     prefix = "[初始潛能]" if roll_number == 0 else f"#{roll_number:05d}"
-    parts = [f"\n{prefix} RAW={text_only}"]
+    parts = [f"{prefix} RAW={text_only}"]
     for i, parsed in enumerate(parsed_lines, 1):
         parts.append(f"  L{i}: {format_line(parsed)}")
+    print()  # 每組結果前空一行
     logger.info("\n".join(parts))
 
     try:

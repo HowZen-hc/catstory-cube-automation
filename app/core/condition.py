@@ -97,12 +97,17 @@ _OCR_FIXES: list[tuple[str, str]] = [
 ]
 
 
+_OCR_DIGIT_FIXES = re.compile(r"(?<=[+\-])B(?=%)")
+
+
 def _fix_ocr_text(text: str) -> str:
     """修正 OCR 常見誤讀字元。"""
     # 移除 OCR 產生的多餘空格（如「魔 法攻擊力」→「魔法攻擊力」）
     text = text.replace(" ", "")
     for wrong, correct in _OCR_FIXES:
         text = text.replace(wrong, correct)
+    # 數值位置的 B → 8（如 +B% → +8%）
+    text = _OCR_DIGIT_FIXES.sub("8", text)
     return text
 
 
