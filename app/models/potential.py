@@ -10,6 +10,20 @@ class PotentialLine:
     raw_text: str = ""  # OCR 原始文字
 
 
+def format_line(line: PotentialLine) -> str:
+    """格式化單行潛能為人可讀字串。"""
+    if line.attribute == "未知":
+        return "(未辨識)"
+    if line.value == 0:
+        return line.attribute
+    attr_name = line.attribute.removesuffix("%")
+    if line.attribute.endswith("%"):
+        return f"{attr_name} +{line.value}%"
+    if line.attribute == "技能冷卻時間":
+        return f"{attr_name} -{line.value}秒"
+    return f"{attr_name} +{line.value}"
+
+
 @dataclass
 class RollResult:
     """一次洗方塊的完整結果。"""
@@ -19,18 +33,4 @@ class RollResult:
     matched: bool = False  # 是否符合目標條件
 
     def summary(self) -> str:
-        parts = []
-        for line in self.lines:
-            if line.attribute == "未知":
-                parts.append("(未辨識)")
-            elif line.value == 0:
-                parts.append(line.attribute)
-            else:
-                attr_name = line.attribute.removesuffix("%")
-                if line.attribute.endswith("%"):
-                    parts.append(f"{attr_name} +{line.value}%")
-                elif line.attribute == "技能冷卻時間":
-                    parts.append(f"{attr_name} -{line.value}秒")
-                else:
-                    parts.append(f"{attr_name} +{line.value}")
-        return " / ".join(parts)
+        return " / ".join(format_line(line) for line in self.lines)

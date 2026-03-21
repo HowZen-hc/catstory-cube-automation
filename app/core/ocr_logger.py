@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from app.models.potential import PotentialLine
+from app.models.potential import PotentialLine, format_line
 
 LOG_DIR = Path("logs")
 OCR_LOG_FILE = LOG_DIR / "ocr_results.log"
@@ -15,20 +15,6 @@ logger = logging.getLogger(__name__)
 
 def _ensure_log_dir() -> None:
     LOG_DIR.mkdir(exist_ok=True)
-
-
-def _format_parsed(parsed: PotentialLine) -> str:
-    """格式化解析結果。"""
-    if parsed.attribute == "未知":
-        return "(未辨識)"
-    if parsed.value == 0:
-        return parsed.attribute
-    attr_name = parsed.attribute.removesuffix("%")
-    if parsed.attribute.endswith("%"):
-        return f"{attr_name} +{parsed.value}%"
-    if parsed.attribute == "技能冷卻時間":
-        return f"{attr_name} -{parsed.value}秒"
-    return f"{attr_name} +{parsed.value}"
 
 
 def save_debug_image(roll_number: int, image: np.ndarray) -> None:
@@ -64,7 +50,7 @@ def log_ocr_result(
     # 同步印到 console：RAW 碎片 + 合併解析結果
     parts = [f"#{roll_number:05d} RAW={text_only}"]
     for i, parsed in enumerate(parsed_lines, 1):
-        parts.append(f"  L{i}: {_format_parsed(parsed)}")
+        parts.append(f"  L{i}: {format_line(parsed)}")
     logger.info("\n".join(parts))
 
     try:
@@ -74,7 +60,7 @@ def log_ocr_result(
             f.write(f"  RAW: {text_only}\n")
             # 合併解析後的結果
             for i, parsed in enumerate(parsed_lines, 1):
-                f.write(f"  L{i}: {_format_parsed(parsed)}")
+                f.write(f"  L{i}: {format_line(parsed)}")
                 if parsed.raw_text:
                     f.write(f"  (raw: {parsed.raw_text!r})")
                 f.write("\n")
