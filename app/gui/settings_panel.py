@@ -71,3 +71,7 @@ class SettingsPanel(QGroupBox):
         if idx >= 0:
             self.cube_type_combo.setCurrentIndex(idx)
         self.delay_spin.setValue(config.delay_ms)
+
+    def load_persistent_from_config(self, config: AppConfig) -> None:
+        """只載入持久性設定（延遲），下拉選單保持 UI 預設值。"""
+        self.delay_spin.setValue(config.delay_ms)

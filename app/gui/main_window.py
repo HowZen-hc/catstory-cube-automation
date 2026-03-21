@@ -94,10 +94,12 @@ class MainWindow(QMainWindow):
         )
 
     def _load_config_to_ui(self) -> None:
-        self.settings_panel.load_from_config(self.config)
-        self.condition_editor.load_from_config(self.config)
-        # 手動觸發萌獸方塊連動（避免 combo 未改變不觸發 signal）
-        self.condition_editor.on_cube_type_changed(self.config.cube_type)
+        # 只載入持久性設定（區域、延遲），下拉選單保持 UI 預設值
+        self.settings_panel.load_persistent_from_config(self.config)
+        # 用 UI 預設的方塊類型觸發萌獸連動
+        self.condition_editor.on_cube_type_changed(
+            self.settings_panel.cube_type_combo.currentText()
+        )
 
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
