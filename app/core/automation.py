@@ -75,6 +75,7 @@ class AutomationWorker(QThread):
             log_ocr_result(0, texts, lines)
             if checker.check(lines):
                 self.status_changed.emit("當前潛能已符合目標條件，無需洗方塊")
+                self.target_reached.emit(0)
                 return
 
         self.status_changed.emit("開始自動洗方塊...")
