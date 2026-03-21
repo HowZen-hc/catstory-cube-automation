@@ -1,4 +1,5 @@
 import re
+from itertools import permutations
 
 from app.models.config import AppConfig, LineCondition
 from app.models.potential import PotentialLine
@@ -300,6 +301,7 @@ class ConditionChecker:
     def __init__(self, config: AppConfig) -> None:
         self.config = config
         self._use_preset = config.use_preset
+        self._any_pos = config.match_any_position
 
         if not self._use_preset:
             self._custom_lines = config.custom_lines
@@ -345,6 +347,9 @@ class ConditionChecker:
         if self._is_雙終被:
             return self._check_雙終被(lines)
 
+        if self._any_pos:
+            return self._check_preset_any_pos(lines)
+
         for i in range(3):
             is_legendary = (i == 0)
             target_min = self._s_val if is_legendary else self._r_val
@@ -360,8 +365,31 @@ class ConditionChecker:
                 return False
         return True
 
+    def _check_preset_any_pos(self, lines: list[PotentialLine]) -> bool:
+        """預設模式任意位置：嘗試所有排列找到一組符合的分配。"""
+        for perm in permutations(lines[:3]):
+            ok = True
+            for i in range(3):
+                is_legendary = (i == 0)
+                target_min = self._s_val if is_legendary else self._r_val
+                all_stats_min = (self._all_s if is_legendary else self._all_r) if self._include_all else None
+                if not _check_line(
+                    perm[i],
+                    self._target_key,
+                    target_min,
+                    all_stats_min,
+                    accept_crit3=self._is_glove,
+                ):
+                    ok = False
+                    break
+            if ok:
+                return True
+        return False
+
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
         """自訂模式：每行用對應的 custom_lines[i] 比對。"""
+        if self._any_pos:
+            return self._check_custom_any_pos(lines)
         for i, lc in enumerate(self._custom_lines):
             line = lines[i]
             if lc.attribute == "被動技能2":
@@ -372,6 +400,26 @@ class ConditionChecker:
                 if line.attribute != target_key or line.value < lc.min_value:
                     return False
         return True
+
+    def _check_custom_any_pos(self, lines: list[PotentialLine]) -> bool:
+        """自訂模式任意位置：嘗試所有排列找到一組符合的分配。"""
+        n = len(self._custom_lines)
+        for perm in permutations(lines[:n]):
+            ok = True
+            for i, lc in enumerate(self._custom_lines):
+                line = perm[i]
+                if lc.attribute == "被動技能2":
+                    if line.attribute != "被動技能2":
+                        ok = False
+                        break
+                else:
+                    target_key = _attr_to_ocr_key(lc.attribute)
+                    if line.attribute != target_key or line.value < lc.min_value:
+                        ok = False
+                        break
+            if ok:
+                return True
+        return False
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
         """雙終被：2 行最終傷害 >= 20% + 1 行被動技能2。"""

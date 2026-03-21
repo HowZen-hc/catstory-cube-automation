@@ -44,6 +44,7 @@ class AppConfig:
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1000
     ocr_engine: str = "paddle"  # "paddle" or "winocr"
+    match_any_position: bool = False  # 任意位置匹配
     use_preset: bool = True
     custom_lines: list[LineCondition] = field(
         default_factory=lambda: [LineCondition()]
@@ -78,6 +79,7 @@ class AppConfig:
                 potential_region=Region(**data.get("potential_region", {})),
                 delay_ms=data.get("delay_ms", 1000),
                 ocr_engine=data.get("ocr_engine", "paddle"),
+                match_any_position=data.get("match_any_position", False),
                 use_preset=data.get("use_preset", True),
                 custom_lines=custom_lines,
             )

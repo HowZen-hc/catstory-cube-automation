@@ -3,13 +3,14 @@ import threading
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
-from app.core.condition import ConditionChecker
+from app.core.condition import ConditionChecker, parse_potential_lines
 from app.core.mouse import MouseController, focus_game_window
 from app.core.ocr import create_ocr_engine
 from app.core.screen import ScreenCapture
 from app.cube.compare_flow import CompareFlowStrategy
 from app.cube.simple_flow import SimpleFlowStrategy
 from app.models.config import AppConfig
+from app.core.ocr_logger import log_ocr_result
 from app.models.potential import RollResult
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,17 @@ class AutomationWorker(QThread):
         if not focus_game_window():
             self.error_occurred.emit("找不到遊戲視窗，請確認遊戲已啟動")
             return
+
+        # 啟動前先檢查當前潛能
+        if self.config.potential_region.is_set():
+            self.status_changed.emit("檢查當前潛能...")
+            pot_img = screen.capture(self.config.potential_region)
+            texts = ocr.recognize(pot_img)
+            lines = parse_potential_lines(texts)
+            log_ocr_result(0, texts, lines)
+            if checker.check(lines):
+                self.status_changed.emit("當前潛能已符合目標條件，無需洗方塊")
+                return
 
         self.status_changed.emit("開始自動洗方塊...")
         roll_number = 0

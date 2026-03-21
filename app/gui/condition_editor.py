@@ -96,6 +96,11 @@ class ConditionEditor(QGroupBox):
         self.preset_check.stateChanged.connect(self._on_preset_toggled)
         layout.addWidget(self.preset_check)
 
+        # 任意位置匹配 checkbox
+        self.any_pos_check = QCheckBox("任意位置匹配")
+        self.any_pos_check.setChecked(False)
+        layout.addWidget(self.any_pos_check)
+
         # === 預設模式 widgets ===
         self._preset_widget = QWidget()
         preset_layout = QVBoxLayout()
@@ -320,6 +325,7 @@ class ConditionEditor(QGroupBox):
         config.equipment_type = self.equip_combo.currentText()
         config.target_attribute = self.attr_combo.currentText()
         config.include_all_stats = self.all_stats_check.isChecked()
+        config.match_any_position = self.any_pos_check.isChecked()
         config.use_preset = self.preset_check.isChecked()
         config.custom_lines = [
             LineCondition(
@@ -337,6 +343,7 @@ class ConditionEditor(QGroupBox):
         if attr_idx >= 0:
             self.attr_combo.setCurrentIndex(attr_idx)
         self.all_stats_check.setChecked(config.include_all_stats)
+        self.any_pos_check.setChecked(config.match_any_position)
         self.preset_check.setChecked(config.use_preset)
 
         # 載入自訂條件：先清除所有排，再依 config 重建
