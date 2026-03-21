@@ -11,7 +11,7 @@ def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
     """放大 + 灰階 + 二值化，提升 OCR 辨識率。"""
     # 放大
     h, w = image.shape[:2]
-    scaled = cv2.resize(image, (w * _SCALE_FACTOR, h * _SCALE_FACTOR), interpolation=cv2.INTER_CUBIC)
+    scaled = cv2.resize(image, (int(w * _SCALE_FACTOR), int(h * _SCALE_FACTOR)), interpolation=cv2.INTER_CUBIC)
     # 灰階
     gray = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
     # OTSU 二值化
