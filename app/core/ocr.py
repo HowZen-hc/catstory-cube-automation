@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 # 預處理放大倍率
-_SCALE_FACTOR = 1.5
+_SCALE_FACTOR = 2.0
 # 放大後四周補白邊（像素），防止邊緣文字被 OCR 截斷
 _PADDING_PX = 20
 
