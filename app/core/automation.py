@@ -78,12 +78,12 @@ class AutomationWorker(QThread):
             lines = parse_potential_lines(texts)
             log_ocr_result(0, texts, lines)
             logger.info(
-                "#00000 耗時: 截圖 %.0fms / OCR %.0fms",
+                "[初始潛能] 耗時: 截圖 %.0fms / OCR %.0fms",
                 (t_cap - t0) * 1000,
                 (t_ocr - t_cap) * 1000,
             )
             matched = checker.check(lines)
-            logger.info("#00000 判斷結果: %s", "✅ 符合" if matched else "❌ 不符合")
+            logger.info("[初始潛能] 判斷結果: %s", "✅ 符合" if matched else "❌ 不符合")
             self.roll_completed.emit(
                 RollResult(roll_number=0, lines=lines, matched=matched)
             )

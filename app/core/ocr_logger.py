@@ -48,14 +48,16 @@ def log_ocr_result(
     text_only = [t for t, _ in raw_texts]
 
     # 同步印到 console：RAW 碎片 + 合併解析結果
-    parts = [f"#{roll_number:05d} RAW={text_only}"]
+    prefix = "[初始潛能]" if roll_number == 0 else f"#{roll_number:05d}"
+    parts = [f"{prefix} RAW={text_only}"]
     for i, parsed in enumerate(parsed_lines, 1):
         parts.append(f"  L{i}: {format_line(parsed)}")
     logger.info("\n".join(parts))
 
     try:
         with OCR_LOG_FILE.open("a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] #{roll_number:05d}\n")
+            label = "[初始潛能]" if roll_number == 0 else f"#{roll_number:05d}"
+            f.write(f"[{timestamp}] {label}\n")
             # 原始 OCR 碎片
             f.write(f"  RAW: {text_only}\n")
             # 合併解析後的結果

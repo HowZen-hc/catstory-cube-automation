@@ -187,8 +187,9 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage("正在停止...")
 
     def _on_roll_completed(self, result: RollResult) -> None:
-        self._roll_count += 1
-        self.count_label.setText(f"次數: {self._roll_count}")
+        if result.roll_number > 0:
+            self._roll_count += 1
+            self.count_label.setText(f"次數: {self._roll_count}")
         self.roll_log.add_result(result)
 
     def _on_status_changed(self, msg: str) -> None:
