@@ -888,6 +888,12 @@ class TestParseCooldownLine:
         assert line.attribute == "技能冷卻時間"
         assert line.value == 2
 
+    def test_cooldown_simplified_mixed(self):
+        """OCR 實際輸出：簡體「时」+ 繁體「間」混用"""
+        line = parse_potential_line("技能冷卻时間-1秒")
+        assert line.attribute == "技能冷卻時間"
+        assert line.value == 1
+
 
 class TestConditionCheckerHat:
     """帽子"""
