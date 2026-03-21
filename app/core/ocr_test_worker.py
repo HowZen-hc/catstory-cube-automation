@@ -37,7 +37,7 @@ class OCRTestWorker(QThread):
         try:
             self.status_changed.emit("初始化 OCR 引擎（首次啟動需下載模型，請稍候）...")
             screen = ScreenCapture()
-            ocr = create_ocr_engine()
+            ocr = create_ocr_engine(use_gpu=self.config.use_gpu)
             checker = ConditionChecker(self.config)
         except Exception as e:
             logger.exception("OCR 測試模式初始化失敗")

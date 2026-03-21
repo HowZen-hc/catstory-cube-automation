@@ -45,6 +45,7 @@ class AppConfig:
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1000
     ocr_engine: str = "paddle"
+    use_gpu: bool = False
     use_preset: bool = True
     custom_lines: list[LineCondition] = field(
         default_factory=lambda: [LineCondition()]
@@ -84,6 +85,7 @@ class AppConfig:
                 potential_region=Region(**data.get("potential_region", {})),
                 delay_ms=data.get("delay_ms", 1000),
                 ocr_engine=data.get("ocr_engine", "paddle"),
+                use_gpu=data.get("use_gpu", False),
                 use_preset=data.get("use_preset", True),
                 custom_lines=custom_lines,
             )

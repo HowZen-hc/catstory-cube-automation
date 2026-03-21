@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 # 預處理放大倍率
-_SCALE_FACTOR = 2
+_SCALE_FACTOR = 1.5
 
 
 def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
@@ -35,10 +35,10 @@ class OCREngine(ABC):
 class PaddleOCREngine(OCREngine):
     """PaddleOCR 3.x 封裝，繁體中文辨識。"""
 
-    def __init__(self) -> None:
+    def __init__(self, use_gpu: bool = False) -> None:
         from paddleocr import PaddleOCR
 
-        self._ocr = PaddleOCR(lang="chinese_cht", enable_mkldnn=False)
+        self._ocr = PaddleOCR(lang="chinese_cht", enable_mkldnn=False, use_gpu=use_gpu)
 
     def recognize(self, image: np.ndarray) -> list[tuple[str, float]]:
         processed = preprocess_for_ocr(image)
@@ -55,6 +55,6 @@ class PaddleOCREngine(OCREngine):
         return out
 
 
-def create_ocr_engine() -> OCREngine:
+def create_ocr_engine(use_gpu: bool = False) -> OCREngine:
     """建立 OCR 引擎（PaddleOCR）。"""
-    return PaddleOCREngine()
+    return PaddleOCREngine(use_gpu=use_gpu)

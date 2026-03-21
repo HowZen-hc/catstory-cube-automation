@@ -1,5 +1,6 @@
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -60,11 +61,19 @@ class SettingsPanel(QGroupBox):
         row3.addStretch()
         layout.addLayout(row3)
 
+        # GPU 加速
+        row4 = QHBoxLayout()
+        self.gpu_checkbox = QCheckBox("啟用 GPU 加速（需要 NVIDIA 顯卡 + CUDA）")
+        row4.addWidget(self.gpu_checkbox)
+        row4.addStretch()
+        layout.addLayout(row4)
+
         self.setLayout(layout)
 
     def apply_to_config(self, config: AppConfig) -> None:
         config.cube_type = self.cube_type_combo.currentText()
         config.delay_ms = self.delay_spin.value()
+        config.use_gpu = self.gpu_checkbox.isChecked()
 
     def load_from_config(self, config: AppConfig) -> None:
         idx = self.cube_type_combo.findText(config.cube_type)
@@ -73,5 +82,6 @@ class SettingsPanel(QGroupBox):
         self.delay_spin.setValue(config.delay_ms)
 
     def load_persistent_from_config(self, config: AppConfig) -> None:
-        """只載入持久性設定（延遲），下拉選單保持 UI 預設值。"""
+        """只載入持久性設定（延遲、GPU），下拉選單保持 UI 預設值。"""
         self.delay_spin.setValue(config.delay_ms)
+        self.gpu_checkbox.setChecked(config.use_gpu)
