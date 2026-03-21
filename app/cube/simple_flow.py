@@ -24,8 +24,12 @@ class SimpleFlowStrategy(CubeStrategy):
         confirm_times = 1 if self.config.cube_type == "萌獸方塊" else 2
         self.mouse.press_confirm(times=confirm_times)
 
-        # 3. 等待結果（使用使用者設定的間隔時間）
-        self.mouse.wait()
+        # 3. 等待結果（萌獸方塊動畫較長，至少等 3 秒）
+        _PET_MIN_DELAY_MS = 2200
+        if self.config.cube_type == "萌獸方塊":
+            self.mouse.wait(ms=max(self.config.delay_ms, _PET_MIN_DELAY_MS))
+        else:
+            self.mouse.wait()
 
         # 4. OCR 讀取潛能
         lines = []

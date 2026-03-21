@@ -65,6 +65,10 @@ class MainWindow(QMainWindow):
         self.btn_stop.clicked.connect(self._on_stop)
         control_layout.addWidget(self.btn_stop)
 
+        self.btn_clear = QPushButton("清除紀錄")
+        self.btn_clear.clicked.connect(self._on_clear_log)
+        control_layout.addWidget(self.btn_clear)
+
         self.count_label = QLabel("次數: 0")
         control_layout.addWidget(self.count_label)
         control_layout.addStretch()
@@ -110,7 +114,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "設定不完整", "請先框選潛能區域")
             return
 
-        self._roll_count = 0
+        self._on_clear_log()
         self.config.save()
 
         self._worker = AutomationWorker(self.config)
@@ -122,6 +126,11 @@ class MainWindow(QMainWindow):
         self._worker.start()
 
         self._set_running_ui(True)
+
+    def _on_clear_log(self) -> None:
+        self.roll_log.clear_log()
+        self._roll_count = 0
+        self.count_label.setText("次數: 0")
 
     def _on_stop(self) -> None:
         logger.info("使用者按下停止按鈕")
