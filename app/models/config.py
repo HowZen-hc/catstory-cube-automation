@@ -43,7 +43,7 @@ class AppConfig:
     include_all_stats: bool = False  # 含全屬性
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1000
-    ocr_engine: str = "paddle"  # "paddle" or "winocr"
+    ocr_engine: str = "paddle"
     match_any_position: bool = False  # 任意位置匹配
     use_preset: bool = True
     custom_lines: list[LineCondition] = field(

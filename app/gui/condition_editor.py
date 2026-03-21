@@ -22,6 +22,11 @@ from app.models.config import AppConfig, LineCondition
 
 _MAX_CUSTOM_ROWS = 3
 
+_MODE_PRESET = "預設規則"
+_MODE_CUSTOM = "自訂（位置比對）"
+_MODE_ANY_POS = "任意位置匹配"
+_MODES = [_MODE_PRESET, _MODE_CUSTOM, _MODE_ANY_POS]
+
 
 class _CustomRowWidget(QWidget):
     """自訂模式的單排條件 widget。"""
@@ -90,16 +95,15 @@ class ConditionEditor(QGroupBox):
         self._equip_row.setLayout(row1)
         layout.addWidget(self._equip_row)
 
-        # 使用預設規則 checkbox
-        self.preset_check = QCheckBox("使用預設規則")
-        self.preset_check.setChecked(True)
-        self.preset_check.stateChanged.connect(self._on_preset_toggled)
-        layout.addWidget(self.preset_check)
-
-        # 任意位置匹配 checkbox
-        self.any_pos_check = QCheckBox("任意位置匹配")
-        self.any_pos_check.setChecked(False)
-        layout.addWidget(self.any_pos_check)
+        # 比對模式下拉選單
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("比對模式:"))
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(_MODES)
+        self.mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        mode_row.addWidget(self.mode_combo)
+        mode_row.addStretch()
+        layout.addLayout(mode_row)
 
         # === 預設模式 widgets ===
         self._preset_widget = QWidget()
@@ -124,7 +128,7 @@ class ConditionEditor(QGroupBox):
         self._preset_widget.setLayout(preset_layout)
         layout.addWidget(self._preset_widget)
 
-        # === 自訂模式 widgets ===
+        # === 自訂模式 widgets（位置比對用） ===
         self._custom_widget = QWidget()
         self._custom_layout = QVBoxLayout()
         self._custom_layout.setContentsMargins(0, 0, 0, 0)
@@ -140,6 +144,21 @@ class ConditionEditor(QGroupBox):
         self._custom_widget.setVisible(False)
         layout.addWidget(self._custom_widget)
 
+        # === 任意位置匹配模式 widgets ===
+        self._any_pos_widget = QWidget()
+        self._any_pos_layout = QVBoxLayout()
+        self._any_pos_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._any_pos_rows: list[_CustomRowWidget] = []
+
+        self._any_pos_add_btn = QPushButton("+ 新增條件排")
+        self._any_pos_add_btn.clicked.connect(self._add_any_pos_row)
+        self._any_pos_layout.addWidget(self._any_pos_add_btn)
+
+        self._any_pos_widget.setLayout(self._any_pos_layout)
+        self._any_pos_widget.setVisible(False)
+        layout.addWidget(self._any_pos_widget)
+
         # 條件預覽
         self.summary_label = QLabel()
         self.summary_label.setStyleSheet("color: #666; padding: 4px;")
@@ -147,6 +166,7 @@ class ConditionEditor(QGroupBox):
 
         # 初始建立 1 排（需在 summary_label 之後，因為會觸發 _update_summary）
         self._add_custom_row()
+        self._add_any_pos_row()
 
         self.setLayout(layout)
 
@@ -202,6 +222,51 @@ class ConditionEditor(QGroupBox):
     def _update_add_btn_visibility(self) -> None:
         self._add_row_btn.setVisible(len(self._custom_rows) < _MAX_CUSTOM_ROWS)
 
+    # ── 任意位置匹配模式動態排管理 ──
+
+    def _add_any_pos_row(self, lc: LineCondition | None = None) -> _CustomRowWidget:
+        """新增一排任意位置條件。"""
+        index = len(self._any_pos_rows)
+        removable = index > 0
+        row = _CustomRowWidget(index, removable)
+
+        equip = self.equip_combo.currentText()
+        custom_attrs = get_custom_attributes(equip)
+        row.attr_combo.addItems(custom_attrs)
+
+        if lc:
+            cidx = row.attr_combo.findText(lc.attribute)
+            if cidx >= 0:
+                row.attr_combo.setCurrentIndex(cidx)
+            row.value_spin.setValue(lc.min_value)
+
+        row.attr_combo.currentTextChanged.connect(self._on_any_pos_attr_changed)
+        row.value_spin.valueChanged.connect(self._on_custom_changed)
+        row.remove_btn.clicked.connect(lambda: self._remove_any_pos_row(row))
+
+        self._any_pos_rows.append(row)
+        self._any_pos_layout.insertWidget(self._any_pos_layout.count() - 1, row)
+
+        self._update_any_pos_add_btn_visibility()
+        row.update_visibility()
+        self._update_summary()
+        return row
+
+    def _remove_any_pos_row(self, row: _CustomRowWidget) -> None:
+        """移除一排任意位置條件。"""
+        if row in self._any_pos_rows:
+            self._any_pos_rows.remove(row)
+            self._any_pos_layout.removeWidget(row)
+            row.deleteLater()
+            for i, r in enumerate(self._any_pos_rows):
+                r.update_label(i)
+                r.remove_btn.setVisible(i > 0)
+            self._update_any_pos_add_btn_visibility()
+            self._update_summary()
+
+    def _update_any_pos_add_btn_visibility(self) -> None:
+        self._any_pos_add_btn.setVisible(len(self._any_pos_rows) < _MAX_CUSTOM_ROWS)
+
     # ── 萌獸方塊連動 ──
 
     def on_cube_type_changed(self, cube_type: str) -> None:
@@ -219,12 +284,12 @@ class ConditionEditor(QGroupBox):
                 self.equip_combo.removeItem(idx)
             self._equip_row.setVisible(True)
 
-    # ── 預設/自訂切換 ──
+    # ── 模式切換 ──
 
-    def _on_preset_toggled(self, _state: int) -> None:
-        use_preset = self.preset_check.isChecked()
-        self._preset_widget.setVisible(use_preset)
-        self._custom_widget.setVisible(not use_preset)
+    def _on_mode_changed(self, mode: str) -> None:
+        self._preset_widget.setVisible(mode == _MODE_PRESET)
+        self._custom_widget.setVisible(mode == _MODE_CUSTOM)
+        self._any_pos_widget.setVisible(mode == _MODE_ANY_POS)
         self._update_summary()
 
     # ── 預設模式 handlers ──
@@ -238,6 +303,7 @@ class ConditionEditor(QGroupBox):
         self._on_attr_changed(self.attr_combo.currentText())
         # 切換裝備類型時重設自訂排為 1 排
         self._reset_custom_rows()
+        self._reset_any_pos_rows()
 
     def _on_attr_changed(self, attr: str) -> None:
         equip = self.equip_combo.currentText()
@@ -276,11 +342,29 @@ class ConditionEditor(QGroupBox):
             row.deleteLater()
         self._add_custom_row()
 
+    def _reset_any_pos_rows(self) -> None:
+        """清除所有任意位置排，重建 1 排。"""
+        while self._any_pos_rows:
+            row = self._any_pos_rows.pop()
+            self._any_pos_layout.removeWidget(row)
+            row.deleteLater()
+        self._add_any_pos_row()
+
     def _on_custom_attr_changed(self, attr: str) -> None:
         """自訂模式屬性變更：更新 visibility + 最終傷害預設值。"""
-        # 找到觸發的 row
         sender = self.sender()
         for row in self._custom_rows:
+            if row.attr_combo is sender:
+                row.update_visibility()
+                if attr == "最終傷害":
+                    row.value_spin.setValue(20)
+                break
+        self._update_summary()
+
+    def _on_any_pos_attr_changed(self, attr: str) -> None:
+        """任意位置模式屬性變更。"""
+        sender = self.sender()
+        for row in self._any_pos_rows:
             if row.attr_combo is sender:
                 row.update_visibility()
                 if attr == "最終傷害":
@@ -299,16 +383,17 @@ class ConditionEditor(QGroupBox):
         self.summary_label.setText("\n".join(lines))
 
     def _build_config_for_summary(self) -> AppConfig:
-        use_preset = self.preset_check.isChecked()
-        if use_preset:
+        mode = self.mode_combo.currentText()
+        if mode == _MODE_PRESET:
             return AppConfig(
                 equipment_type=self.equip_combo.currentText(),
                 target_attribute=self.attr_combo.currentText(),
                 include_all_stats=self.all_stats_check.isChecked(),
                 use_preset=True,
             )
+        rows = self._any_pos_rows if mode == _MODE_ANY_POS else self._custom_rows
         custom_lines = []
-        for row in self._custom_rows:
+        for row in rows:
             custom_lines.append(LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
@@ -316,23 +401,27 @@ class ConditionEditor(QGroupBox):
         return AppConfig(
             equipment_type=self.equip_combo.currentText(),
             use_preset=False,
+            match_any_position=(mode == _MODE_ANY_POS),
             custom_lines=custom_lines,
         )
 
     # ── config 讀寫 ──
 
     def apply_to_config(self, config: AppConfig) -> None:
+        mode = self.mode_combo.currentText()
         config.equipment_type = self.equip_combo.currentText()
         config.target_attribute = self.attr_combo.currentText()
         config.include_all_stats = self.all_stats_check.isChecked()
-        config.match_any_position = self.any_pos_check.isChecked()
-        config.use_preset = self.preset_check.isChecked()
+        config.use_preset = (mode == _MODE_PRESET)
+        config.match_any_position = (mode == _MODE_ANY_POS)
+        # 依當前模式決定寫入哪組 rows
+        rows = self._any_pos_rows if mode == _MODE_ANY_POS else self._custom_rows
         config.custom_lines = [
             LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
             )
-            for row in self._custom_rows
+            for row in rows
         ]
 
     def load_from_config(self, config: AppConfig) -> None:
@@ -343,18 +432,33 @@ class ConditionEditor(QGroupBox):
         if attr_idx >= 0:
             self.attr_combo.setCurrentIndex(attr_idx)
         self.all_stats_check.setChecked(config.include_all_stats)
-        self.any_pos_check.setChecked(config.match_any_position)
-        self.preset_check.setChecked(config.use_preset)
 
-        # 載入自訂條件：先清除所有排，再依 config 重建
-        while self._custom_rows:
-            row = self._custom_rows.pop()
-            self._custom_layout.removeWidget(row)
-            row.deleteLater()
+        # 從 config 欄位推導模式
+        if config.use_preset:
+            mode = _MODE_PRESET
+        elif config.match_any_position:
+            mode = _MODE_ANY_POS
+        else:
+            mode = _MODE_CUSTOM
+        self.mode_combo.setCurrentText(mode)
 
-        for lc in config.custom_lines[:_MAX_CUSTOM_ROWS]:
-            self._add_custom_row(lc)
-
-        # 若 config 沒有任何自訂排，至少建 1 排
-        if not self._custom_rows:
-            self._add_custom_row()
+        if config.match_any_position:
+            # 載入到任意位置排
+            while self._any_pos_rows:
+                row = self._any_pos_rows.pop()
+                self._any_pos_layout.removeWidget(row)
+                row.deleteLater()
+            for lc in config.custom_lines[:_MAX_CUSTOM_ROWS]:
+                self._add_any_pos_row(lc)
+            if not self._any_pos_rows:
+                self._add_any_pos_row()
+        else:
+            # 載入到自訂排
+            while self._custom_rows:
+                row = self._custom_rows.pop()
+                self._custom_layout.removeWidget(row)
+                row.deleteLater()
+            for lc in config.custom_lines[:_MAX_CUSTOM_ROWS]:
+                self._add_custom_row(lc)
+            if not self._custom_rows:
+                self._add_custom_row()
