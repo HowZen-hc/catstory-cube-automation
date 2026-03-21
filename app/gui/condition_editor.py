@@ -179,7 +179,7 @@ class ConditionEditor(QGroupBox):
 
         # 連接 signals
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
-        row.value_spin.valueChanged.connect(self._on_custom_changed)
+        row.value_spin.valueChanged.connect(self._update_summary)
         row.position_combo.currentIndexChanged.connect(self._on_position_changed)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
 
