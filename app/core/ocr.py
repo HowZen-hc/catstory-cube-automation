@@ -38,7 +38,8 @@ class PaddleOCREngine(OCREngine):
     def __init__(self, use_gpu: bool = False) -> None:
         from paddleocr import PaddleOCR
 
-        self._ocr = PaddleOCR(lang="chinese_cht", enable_mkldnn=False, use_gpu=use_gpu)
+        device = "gpu:0" if use_gpu else "cpu"
+        self._ocr = PaddleOCR(lang="chinese_cht", device=device)
 
     def recognize(self, image: np.ndarray) -> list[tuple[str, float]]:
         processed = preprocess_for_ocr(image)
