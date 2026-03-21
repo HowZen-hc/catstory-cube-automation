@@ -689,6 +689,139 @@ class TestConditionCheckerCustomMode:
         assert checker.check(lines) is True
 
 
+class TestPresetPermutationCheck:
+    """預設規則排列檢查：一般裝備 STR + 全屬性。
+
+    S潛=8, 罕見=6, 全屬性S=6, 全屬性罕=5。
+    合格組合（數字代表三行值，不限位置）：
+    865, 855, 866, 856, 886, 885, 868, 858, 888, 655, 665, 666
+    """
+
+    def _make_checker(self):
+        config = AppConfig(
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        return ConditionChecker(config)
+
+    def _lines(self, *values):
+        """建立測試行。8/6 用 STR%，5 用全屬性%。"""
+        result = []
+        for v in values:
+            if v == 5:
+                result.append(PotentialLine("全屬性%", 5))
+            elif v == 6:
+                result.append(PotentialLine("STR%", 6))
+            elif v == 8:
+                result.append(PotentialLine("STR%", 8))
+            else:
+                result.append(PotentialLine("STR%", v))
+        return result
+
+    # ── 合格組合 ──
+
+    def test_865(self):
+        assert self._make_checker().check(self._lines(8, 6, 5)) is True
+
+    def test_856(self):
+        assert self._make_checker().check(self._lines(8, 5, 6)) is True
+
+    def test_685(self):
+        """S潛行不在第一排，排列檢查應能找到。"""
+        assert self._make_checker().check(self._lines(6, 8, 5)) is True
+
+    def test_658(self):
+        assert self._make_checker().check(self._lines(6, 5, 8)) is True
+
+    def test_586(self):
+        assert self._make_checker().check(self._lines(5, 8, 6)) is True
+
+    def test_568(self):
+        assert self._make_checker().check(self._lines(5, 6, 8)) is True
+
+    def test_855(self):
+        assert self._make_checker().check(self._lines(8, 5, 5)) is True
+
+    def test_866(self):
+        assert self._make_checker().check(self._lines(8, 6, 6)) is True
+
+    def test_886(self):
+        assert self._make_checker().check(self._lines(8, 8, 6)) is True
+
+    def test_885(self):
+        assert self._make_checker().check(self._lines(8, 8, 5)) is True
+
+    def test_868(self):
+        assert self._make_checker().check(self._lines(8, 6, 8)) is True
+
+    def test_858(self):
+        assert self._make_checker().check(self._lines(8, 5, 8)) is True
+
+    def test_888(self):
+        assert self._make_checker().check(self._lines(8, 8, 8)) is True
+
+    def test_655(self):
+        """三行全屬性/罕見，其中一行全屬性>=6可當S潛。"""
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("全屬性%", 6),
+            PotentialLine("全屬性%", 5),
+            PotentialLine("全屬性%", 5),
+        ]
+        assert checker.check(lines) is True
+
+    def test_665(self):
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("全屬性%", 6),
+            PotentialLine("全屬性%", 6),
+            PotentialLine("全屬性%", 5),
+        ]
+        assert checker.check(lines) is True
+
+    def test_666(self):
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("全屬性%", 6),
+            PotentialLine("全屬性%", 6),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    # ── 不合格組合 ──
+
+    def test_554_fail(self):
+        """全部低於門檻。"""
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("全屬性%", 5),
+            PotentialLine("全屬性%", 5),
+            PotentialLine("全屬性%", 4),
+        ]
+        assert checker.check(lines) is False
+
+    def test_764_fail(self):
+        """無 S潛行（7<8），且有行低於罕見門檻。"""
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("STR%", 7),
+            PotentialLine("STR%", 6),
+            PotentialLine("全屬性%", 4),
+        ]
+        assert checker.check(lines) is False
+
+    def test_755_fail(self):
+        """7 不夠當 S潛（需 8），5 全屬性不夠當 S潛（需 6）。"""
+        checker = self._make_checker()
+        lines = [
+            PotentialLine("STR%", 7),
+            PotentialLine("全屬性%", 5),
+            PotentialLine("全屬性%", 5),
+        ]
+        assert checker.check(lines) is False
+
+
 class TestConditionCheckerCustomSummary:
     """自訂模式條件摘要測試"""
 
