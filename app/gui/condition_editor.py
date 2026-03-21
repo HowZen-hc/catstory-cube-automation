@@ -180,7 +180,7 @@ class ConditionEditor(QGroupBox):
         # 連接 signals
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
         row.value_spin.valueChanged.connect(self._on_custom_changed)
-        row.position_combo.currentIndexChanged.connect(self._on_custom_changed)
+        row.position_combo.currentIndexChanged.connect(self._on_position_changed)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
 
         self._custom_rows.append(row)
@@ -189,6 +189,7 @@ class ConditionEditor(QGroupBox):
 
         self._update_add_btn_visibility()
         row.update_visibility()
+        self._refresh_any_pos_attr_exclusions()
         self._update_summary()
         return row
 
@@ -201,10 +202,39 @@ class ConditionEditor(QGroupBox):
             for i, r in enumerate(self._custom_rows):
                 r.remove_btn.setVisible(i > 0)
             self._update_add_btn_visibility()
+            self._refresh_any_pos_attr_exclusions()
             self._update_summary()
 
     def _update_add_btn_visibility(self) -> None:
         self._add_row_btn.setVisible(len(self._custom_rows) < _MAX_CUSTOM_ROWS)
+
+    def _refresh_any_pos_attr_exclusions(self) -> None:
+        """任意一排的 row 之間互斥：已被其他任意一排選的屬性不可再選。"""
+        equip = self.equip_combo.currentText()
+        all_attrs = get_custom_attributes(equip)
+
+        # 收集所有「任意一排」row 已選的屬性
+        any_pos_rows = [r for r in self._custom_rows if r.position_combo.currentIndex() == 0]
+        taken = {r.attr_combo.currentText() for r in any_pos_rows}
+
+        for row in self._custom_rows:
+            row.attr_combo.blockSignals(True)
+            current = row.attr_combo.currentText()
+            is_any_pos = row.position_combo.currentIndex() == 0
+
+            if is_any_pos:
+                # 只排除其他任意一排 row 已選的屬性（保留自己的）
+                excluded = taken - {current}
+                available = [a for a in all_attrs if a not in excluded]
+            else:
+                available = all_attrs
+
+            row.attr_combo.clear()
+            row.attr_combo.addItems(available)
+            idx = row.attr_combo.findText(current)
+            if idx >= 0:
+                row.attr_combo.setCurrentIndex(idx)
+            row.attr_combo.blockSignals(False)
 
     # ── 萌獸方塊連動 ──
 
@@ -294,9 +324,11 @@ class ConditionEditor(QGroupBox):
                 if attr == "最終傷害":
                     row.value_spin.setValue(20)
                 break
+        self._refresh_any_pos_attr_exclusions()
         self._update_summary()
 
-    def _on_custom_changed(self) -> None:
+    def _on_position_changed(self) -> None:
+        self._refresh_any_pos_attr_exclusions()
         self._update_summary()
 
     # ── 條件預覽 ──
