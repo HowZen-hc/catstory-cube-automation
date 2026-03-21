@@ -3,15 +3,8 @@ import os
 import sys
 import warnings
 
-# 先設定 logging，確保在任何 import 之前生效
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-# 抑制第三方套件噪音
+# 抑制第三方套件噪音（環境變數需在 import paddle 前設定）
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
-os.environ["PADDLEX_LOG_LEVEL"] = "ERROR"
 os.environ["FLAGS_minloglevel"] = "2"  # 抑制 Paddle C++ INFO/WARNING
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
@@ -21,7 +14,12 @@ from PyQt6.QtWidgets import QApplication
 
 from app.gui.main_window import MainWindow
 
-# import 後再抑制第三方 logger，避免被套件自身的設定覆蓋
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+# 只壓第三方 logger，不動 root logger
 for _name in ("paddle", "paddlex", "paddleocr", "ppocr"):
     logging.getLogger(_name).setLevel(logging.ERROR)
 
