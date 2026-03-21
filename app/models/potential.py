@@ -29,6 +29,8 @@ class RollResult:
                 attr_name = line.attribute.removesuffix("%")
                 if line.attribute.endswith("%"):
                     parts.append(f"{attr_name} +{line.value}%")
+                elif line.attribute == "技能冷卻時間":
+                    parts.append(f"{attr_name} -{line.value}秒")
                 else:
                     parts.append(f"{attr_name} +{line.value}")
         return " / ".join(parts)
