@@ -14,14 +14,13 @@ from PyQt6.QtWidgets import QApplication
 
 from app.gui.main_window import MainWindow
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
-
-# 只壓第三方 logger，不動 root logger
-for _name in ("paddle", "paddlex", "paddleocr", "ppocr"):
-    logging.getLogger(_name).setLevel(logging.ERROR)
+# 為 app namespace 設定獨立的 handler，不依賴 root logger（避免被 PaddleX 覆蓋）
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+_app_logger = logging.getLogger("app")
+_app_logger.setLevel(logging.INFO)
+_app_logger.addHandler(_handler)
+_app_logger.propagate = False  # 不往 root logger 傳，避免重複或被吃掉
 
 
 def main():
