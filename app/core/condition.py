@@ -9,7 +9,7 @@ from app.models.potential import PotentialLine
 ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     # 主要屬性（用於條件判斷）
     "STR%": re.compile(r"STR\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "DEX%": re.compile(r"DEX\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "DEX%": re.compile(r"D?EX\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "INT%": re.compile(r"INT\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "LUK%": re.compile(r"LUK\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "全屬性%": re.compile(r"全屬性\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -24,6 +24,13 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "HP恢復效率%": re.compile(r"HP恢復道具及恢復技能效率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "MP消耗%": re.compile(r"所有技能的?MP消耗\s*[:\uff1a]?\s*-?\s*(\d+) ?%"),
+    # 以角色等級為準每N級 STAT +N（非%，特殊處理）
+    "每級STR": re.compile(r"以角色等級為準每\d+級\s*STR\s*\+?\s*(\d+)"),
+    "每級DEX": re.compile(r"以角色等級為準每\d+級\s*DEX\s*\+?\s*(\d+)"),
+    "每級INT": re.compile(r"以角色等級為準每\d+級\s*INT\s*\+?\s*(\d+)"),
+    "每級LUK": re.compile(r"以角色等級為準每\d+級\s*LUK\s*\+?\s*(\d+)"),
     # 萌獸屬性
     "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -32,6 +39,12 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
 # 文字描述型屬性（無數值）
 TEXT_ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "被動技能2": re.compile(r"依照被動技能\s*2\s*來增加"),
+    "HP恢復效率": re.compile(r"HP恢復道具及恢復技能效率"),
+    "MP消耗": re.compile(r"所有技能的?MP消耗"),
+    "每級STR": re.compile(r"以角色等級為準每\d+級\s*STR"),
+    "每級DEX": re.compile(r"以角色等級為準每\d+級\s*DEX"),
+    "每級INT": re.compile(r"以角色等級為準每\d+級\s*INT"),
+    "每級LUK": re.compile(r"以角色等級為準每\d+級\s*LUK"),
 }
 
 
@@ -55,6 +68,11 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("爆机率", "爆擊機率"),
     ("爆機率", "爆擊機率"),
     ("机率", "機率"),
+    # 以角色等級為準系列
+    ("等级", "等級"),
+    ("级", "級"),
+    ("为准", "為準"),
+    ("為准", "為準"),
 ]
 
 
@@ -68,11 +86,7 @@ def _fix_ocr_text(text: str) -> str:
 def parse_potential_line(text: str) -> PotentialLine:
     """解析單段 OCR 文字為 PotentialLine。"""
     text = _fix_ocr_text(text)
-    # 先檢查純文字屬性（無數值）
-    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
-        if pattern.search(text):
-            return PotentialLine(attribute=attr_name, value=0, raw_text=text)
-    # 再檢查數值型屬性
+    # 先檢查數值型屬性（含 % 的較精確）
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         match = pattern.search(text)
         if match:
@@ -81,6 +95,10 @@ def parse_potential_line(text: str) -> PotentialLine:
                 value=int(match.group(1)),
                 raw_text=text,
             )
+    # 再檢查純文字屬性（無數值，作為 fallback）
+    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(text):
+            return PotentialLine(attribute=attr_name, value=0, raw_text=text)
     return PotentialLine(attribute="未知", value=0, raw_text=text)
 
 
@@ -88,12 +106,7 @@ def _parse_merged_text(merged: str) -> PotentialLine:
     """從合併後的文字中解析出一個 PotentialLine。"""
     merged = _fix_ocr_text(merged)
 
-    # 文字型屬性
-    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
-        if pattern.search(merged):
-            return PotentialLine(attribute=attr_name, value=0, raw_text=merged)
-
-    # 數值型屬性：取第一個匹配
+    # 數值型屬性：取第一個匹配（含 % 的較精確，優先）
     best: tuple[int, PotentialLine] | None = None
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         m = pattern.search(merged)
@@ -108,6 +121,12 @@ def _parse_merged_text(merged: str) -> PotentialLine:
 
     if best is not None:
         return best[1]
+
+    # 純文字屬性（無數值，作為 fallback）
+    for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
+        if pattern.search(merged):
+            return PotentialLine(attribute=attr_name, value=0, raw_text=merged)
+
     return PotentialLine(attribute="未知", value=0, raw_text=merged)
 
 
@@ -184,6 +203,9 @@ def parse_potential_lines(
         if result[i].attribute != "未知" or result[i + 1].attribute != "未知":
             continue
         if not rows[i].strip() or not rows[i + 1].strip():
+            continue
+        # 若下一行以 % 開頭，不合併（避免偷走隔壁行的 %）
+        if rows[i + 1].lstrip().startswith("%"):
             continue
         merged = rows[i] + rows[i + 1]
         parsed = _parse_merged_text(merged)
@@ -460,18 +482,34 @@ class ConditionChecker:
         return False
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
-        """自訂模式：所有條件為 OR，任一條命中即符合。"""
+        """自訂模式：指定位置條件用 AND，任意一排條件用 OR。
+
+        所有指定位置（position>=1）的條件必須全部符合，
+        任意一排（position=0）的條件只要任一符合即可。
+        """
+        any_pos_conditions = []
+        fixed_pos_conditions = []
         for lc in self._custom_lines:
             if lc.position == 0:
-                # 任意一排：檢查所有行
-                if any(self._match_line(lc, line) for line in lines[:3]):
-                    return True
+                any_pos_conditions.append(lc)
             else:
-                # 指定位置
-                idx = lc.position - 1
-                if idx < len(lines) and self._match_line(lc, lines[idx]):
-                    return True
-        return False
+                fixed_pos_conditions.append(lc)
+
+        # 指定位置條件：全部必須符合（AND）
+        for lc in fixed_pos_conditions:
+            idx = lc.position - 1
+            if idx >= len(lines) or not self._match_line(lc, lines[idx]):
+                return False
+
+        # 任意一排條件：任一符合即可（OR）
+        if any_pos_conditions:
+            if not any(
+                any(self._match_line(lc, line) for line in lines[:3])
+                for lc in any_pos_conditions
+            ):
+                return False
+
+        return True
 
     @staticmethod
     def _match_line(lc: LineCondition, line: PotentialLine) -> bool:

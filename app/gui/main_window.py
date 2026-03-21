@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.automation import AutomationWorker
+from app.core.ocr_test_worker import OCRTestWorker
 from app.gui.condition_editor import ConditionEditor
 from app.gui.region_selector import RegionSelector
 from app.gui.roll_log import RollLog
@@ -28,7 +29,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.config = AppConfig.load()
-        self._worker: AutomationWorker | None = None
+        self._worker: AutomationWorker | OCRTestWorker | None = None
+        self._ocr_test_mode = False
         self._roll_count = 0
         self._init_ui()
         self._load_config_to_ui()
@@ -59,6 +61,10 @@ class MainWindow(QMainWindow):
         self.btn_start = QPushButton("▶ 開始")
         self.btn_start.clicked.connect(self._on_start)
         control_layout.addWidget(self.btn_start)
+
+        self.btn_ocr_test = QPushButton("🔍 測試 OCR")
+        self.btn_ocr_test.clicked.connect(self._on_ocr_test)
+        control_layout.addWidget(self.btn_ocr_test)
 
         self.btn_stop = QPushButton("■ 停止")
         self.btn_stop.setEnabled(False)
@@ -115,6 +121,7 @@ class MainWindow(QMainWindow):
             return
 
         self._on_clear_log()
+        self._ocr_test_mode = False
         self.config.save()
 
         self._worker = AutomationWorker(self.config)
@@ -122,6 +129,26 @@ class MainWindow(QMainWindow):
         self._worker.status_changed.connect(self._on_status_changed)
         self._worker.error_occurred.connect(self._on_error)
         self._worker.target_reached.connect(self._on_target_reached)
+        self._worker.finished.connect(self._on_worker_finished)
+        self._worker.start()
+
+        self._set_running_ui(True)
+
+    def _on_ocr_test(self) -> None:
+        self.settings_panel.apply_to_config(self.config)
+        self.condition_editor.apply_to_config(self.config)
+
+        if not self.config.potential_region.is_set():
+            QMessageBox.warning(self, "設定不完整", "請先框選潛能區域")
+            return
+
+        self._on_clear_log()
+        self._ocr_test_mode = True
+
+        self._worker = OCRTestWorker(self.config)
+        self._worker.roll_completed.connect(self._on_roll_completed)
+        self._worker.status_changed.connect(self._on_status_changed)
+        self._worker.error_occurred.connect(self._on_error)
         self._worker.finished.connect(self._on_worker_finished)
         self._worker.start()
 
@@ -159,7 +186,10 @@ class MainWindow(QMainWindow):
 
     def _on_worker_finished(self) -> None:
         self._set_running_ui(False)
-        self.status_bar.showMessage(f"已停止，共洗 {self._roll_count} 次")
+        if self._ocr_test_mode:
+            self.status_bar.showMessage(f"OCR 測試結束，共測試 {self._roll_count} 次")
+        else:
+            self.status_bar.showMessage(f"已停止，共洗 {self._roll_count} 次")
         # 紅色「已停止」提示 2 秒
         self.btn_start.setText("■ 已停止")
         self.btn_start.setStyleSheet("background-color: #e53935; color: white;")
@@ -173,6 +203,7 @@ class MainWindow(QMainWindow):
     def _set_running_ui(self, running: bool) -> None:
         """切換執行/停止狀態的 UI。"""
         self.btn_start.setEnabled(not running)
+        self.btn_ocr_test.setEnabled(not running)
         self.btn_stop.setEnabled(running)
         self.btn_stop.setText("■ 停止")
         self.btn_stop.setStyleSheet("")
