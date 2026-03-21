@@ -36,10 +36,13 @@ class PaddleOCREngine(OCREngine):
     """PaddleOCR 3.x 封裝，繁體中文辨識。"""
 
     def __init__(self, use_gpu: bool = False) -> None:
+        import os
+        os.environ["FLAGS_use_mkldnn"] = "0"
+
         from paddleocr import PaddleOCR
 
         device = "gpu:0" if use_gpu else "cpu"
-        self._ocr = PaddleOCR(lang="chinese_cht", device=device)
+        self._ocr = PaddleOCR(lang="chinese_cht", device=device, enable_mkldnn=False)
 
     def recognize(self, image: np.ndarray) -> list[tuple[str, float]]:
         processed = preprocess_for_ocr(image)

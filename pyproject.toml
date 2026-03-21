@@ -9,7 +9,7 @@ dependencies = [
     "numpy>=2.4.3",
     "opencv-python>=4.13.0.92",
     "paddleocr>=3.4.0",
-    "paddlepaddle>=3.3.0",
+    "paddlepaddle>=3.2.2,<3.3.0",
     "pyqt6>=6.10.2",
 ]
 
