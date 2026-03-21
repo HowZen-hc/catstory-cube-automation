@@ -76,6 +76,7 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("為准", "為準"),
     ("为準", "為準"),
     # 屬性誤讀
+    ("勿理", "物理"),
     ("厨性", "屬性"),
 ]
 
@@ -134,6 +135,49 @@ def _parse_merged_text(merged: str) -> PotentialLine:
             return PotentialLine(attribute=attr_name, value=0, raw_text=merged)
 
     return PotentialLine(attribute="未知", value=0, raw_text=merged)
+
+
+_VALUE_ONLY_RE = re.compile(r"^[+\-]?\d+%?$")
+
+
+def _merge_value_fragments(
+    fragments: list[tuple[str, float]],
+) -> list[tuple[str, float]]:
+    """將純數值碎片（如 '+10%'）合併到 y 座標最近的屬性碎片。"""
+    if len(fragments) <= 1:
+        return fragments
+
+    value_indices: set[int] = set()
+    for i, (text, _) in enumerate(fragments):
+        if _VALUE_ONLY_RE.match(text.strip()):
+            value_indices.add(i)
+
+    if not value_indices or len(value_indices) == len(fragments):
+        return fragments
+
+    result = list(fragments)
+    merged: set[int] = set()
+    used_targets: set[int] = set()
+
+    for vi in sorted(value_indices):
+        vtext, vy = result[vi]
+        # 找 y 座標最近且尚未接收過數值的屬性碎片
+        best_idx = -1
+        best_dist = float("inf")
+        for j, (_, jy) in enumerate(result):
+            if j in value_indices or j in used_targets:
+                continue
+            dist = abs(jy - vy)
+            if dist < best_dist:
+                best_dist = dist
+                best_idx = j
+        if best_idx >= 0:
+            atext, ay = result[best_idx]
+            result[best_idx] = (atext + vtext, ay)
+            merged.add(vi)
+            used_targets.add(best_idx)
+
+    return [f for i, f in enumerate(result) if i not in merged]
 
 
 def _group_fragments_by_y(
@@ -196,6 +240,7 @@ def parse_potential_lines(
     永遠回傳恰好 3 個 PotentialLine，偵測不到的行填 PotentialLine("未知", 0)。
     若相鄰行皆為未知，嘗試合併後重新解析（處理 OCR 碎片跨行分割的情況）。
     """
+    raw_texts = _merge_value_fragments(raw_texts)
     rows = _group_fragments_by_y(raw_texts, num_rows=3)
     result: list[PotentialLine] = []
     for row_text in rows:
