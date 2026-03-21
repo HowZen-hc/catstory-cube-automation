@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -69,11 +70,20 @@ class AutomationWorker(QThread):
         # 啟動前先檢查當前潛能
         if self.config.potential_region.is_set():
             self.status_changed.emit("檢查當前潛能...")
+            t0 = time.perf_counter()
             pot_img = screen.capture(self.config.potential_region)
+            t_cap = time.perf_counter()
             texts = ocr.recognize(pot_img)
+            t_ocr = time.perf_counter()
             lines = parse_potential_lines(texts)
             log_ocr_result(0, texts, lines)
+            logger.info(
+                "#00000 耗時: 截圖 %.0fms / OCR %.0fms",
+                (t_cap - t0) * 1000,
+                (t_ocr - t_cap) * 1000,
+            )
             matched = checker.check(lines)
+            logger.info("#00000 判斷結果: %s", "✅ 符合" if matched else "❌ 不符合")
             self.roll_completed.emit(
                 RollResult(roll_number=0, lines=lines, matched=matched)
             )

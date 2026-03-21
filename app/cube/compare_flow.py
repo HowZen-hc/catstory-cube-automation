@@ -1,4 +1,5 @@
 import logging
+import time
 
 from app.core.condition import parse_potential_lines
 from app.core.ocr_logger import log_ocr_result, save_debug_image
@@ -53,10 +54,19 @@ class CompareFlowStrategy(CubeStrategy):
     def _read_potential(self, roll_number: int) -> list[PotentialLine]:
         if not self.config.potential_region.is_set():
             return []
+        t0 = time.perf_counter()
         img = self.screen.capture(self.config.potential_region)
+        t_cap = time.perf_counter()
         texts = self.ocr.recognize(img)
+        t_ocr = time.perf_counter()
         lines = parse_potential_lines(texts)
         log_ocr_result(roll_number, texts, lines)
+        logger.info(
+            "#%05d 耗時: 截圖 %.0fms / OCR %.0fms",
+            roll_number,
+            (t_cap - t0) * 1000,
+            (t_ocr - t_cap) * 1000,
+        )
         if not texts:
             save_debug_image(roll_number, img)
         return lines

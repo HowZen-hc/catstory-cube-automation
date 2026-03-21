@@ -20,8 +20,9 @@ class SimpleFlowStrategy(CubeStrategy):
         self.mouse.press_confirm(times=1)
         self.mouse.wait(ms=150)
 
-        # 2. 按兩次空白鍵確認（遊戲防呆雙重確認）
-        self.mouse.press_confirm(times=2)
+        # 2. 按空白鍵確認（萌獸方塊只需 1 次，其餘需 2 次）
+        confirm_times = 1 if self.config.cube_type == "萌獸方塊" else 2
+        self.mouse.press_confirm(times=confirm_times)
 
         # 3. 等待結果（使用使用者設定的間隔時間）
         self.mouse.wait()
