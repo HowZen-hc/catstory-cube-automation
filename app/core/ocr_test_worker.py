@@ -6,7 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.condition import ConditionChecker, parse_potential_lines
 from app.core.ocr import create_ocr_engine
-from app.core.ocr_logger import log_ocr_result
+from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.core.screen import ScreenCapture
 from app.models.config import AppConfig
 from app.models.potential import RollResult
@@ -58,6 +58,7 @@ class OCRTestWorker(QThread):
                 texts = ocr.recognize(pot_img)
                 t_ocr = time.perf_counter()
                 lines = parse_potential_lines(texts)
+                save_debug_image(count, pot_img)
                 log_ocr_result(count, texts, lines)
                 logger.info(
                     "OCR 測試 #%05d 耗時: 截圖 %.0fms / OCR %.0fms",
