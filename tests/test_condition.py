@@ -870,6 +870,172 @@ class TestPresetPermutationCheck:
         assert checker.check(lines) is False
 
 
+class TestParseCooldownLine:
+    """技能冷卻時間解析"""
+
+    def test_cooldown_basic(self):
+        line = parse_potential_line("技能冷卻時間 -1秒")
+        assert line.attribute == "技能冷卻時間"
+        assert line.value == 1
+
+    def test_cooldown_no_space(self):
+        line = parse_potential_line("技能冷卻時間-1秒")
+        assert line.attribute == "技能冷卻時間"
+        assert line.value == 1
+
+    def test_cooldown_2_seconds(self):
+        line = parse_potential_line("技能冷卻時間 -2秒")
+        assert line.attribute == "技能冷卻時間"
+        assert line.value == 2
+
+
+class TestConditionCheckerHat:
+    """帽子"""
+
+    def test_hat_eternal_str_pass(self):
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("STR%", 7),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_eternal_with_cooldown(self):
+        """帽子：冷卻時間替代 S潛行"""
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("STR%", 7),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_eternal_cooldown_any_physical_position(self):
+        """帽子：冷卻時間不一定在第1排，排列會分配到 S潛 slot"""
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 7),
+            PotentialLine("全屬性%", 6),
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_double_cooldown_pass(self):
+        """帽子：兩行冷卻 + 一行屬性也合格（任何排都可能出冷卻）"""
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("STR%", 7),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_non_eternal_pass(self):
+        config = AppConfig(
+            equipment_type="帽子 (非永恆)",
+            target_attribute="DEX",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("DEX%", 8),
+            PotentialLine("全屬性%", 5),
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_non_eternal_fail(self):
+        config = AppConfig(
+            equipment_type="帽子 (非永恆)",
+            target_attribute="DEX",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("DEX%", 7),  # S潛 needs >= 8
+            PotentialLine("DEX%", 5),  # 罕見 needs >= 6
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is False
+
+    def test_hat_maxhp(self):
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="MaxHP",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("MaxHP%", 12),
+            PotentialLine("MaxHP%", 9),
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_all_attr_no_cooldown(self):
+        """帽子三行都是屬性也合格"""
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("STR%", 7),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_summary_shows_cooldown(self):
+        from app.core.condition import generate_condition_summary
+
+        config = AppConfig(
+            equipment_type="帽子 (永恆)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        lines = generate_condition_summary(config)
+        assert len(lines) == 1
+        assert "技能冷卻時間" in lines[0]
+        assert "全屬性" in lines[0]
+
+    def test_non_hat_no_cooldown(self):
+        """非帽子裝備不接受冷卻時間"""
+        config = AppConfig(
+            equipment_type="永恆裝備·光輝套裝 (250等+)",
+            target_attribute="STR",
+            include_all_stats=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("STR%", 7),
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is False
+
+
 class TestConditionCheckerCustomSummary:
     """自訂模式條件摘要測試"""
 

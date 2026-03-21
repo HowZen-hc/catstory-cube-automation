@@ -14,6 +14,7 @@ from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
     GLOVE_TYPES,
+    HAT_TYPES,
     STATS_WITH_ALL_STATS,
     generate_condition_summary,
     get_custom_attributes,
@@ -250,9 +251,9 @@ class ConditionEditor(QGroupBox):
     def _on_attr_changed(self, attr: str) -> None:
         equip = self.equip_combo.currentText()
         # 全屬性 checkbox 只在 STR/DEX/INT/LUK 時顯示
-        can_all_stats = attr in STATS_WITH_ALL_STATS and equip not in GLOVE_TYPES
-        # 手套也可以含全屬性（第2、3行）
-        if equip in GLOVE_TYPES and attr in STATS_WITH_ALL_STATS:
+        can_all_stats = attr in STATS_WITH_ALL_STATS and equip not in GLOVE_TYPES and equip not in HAT_TYPES
+        # 手套/帽子也可以含全屬性（第2、3行）
+        if (equip in GLOVE_TYPES or equip in HAT_TYPES) and attr in STATS_WITH_ALL_STATS:
             can_all_stats = True
         self.all_stats_check.setVisible(can_all_stats)
         if not can_all_stats:

@@ -41,6 +41,8 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "物理攻擊力": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
     "魔法攻擊力": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
     "防禦力": re.compile(r"防禦力\s*[:\uff1a]?\s*\+\s*(\d+)(?!\s*%)"),
+    # 技能冷卻時間（帽子用，非 %）
+    "技能冷卻時間": re.compile(r"技能冷卻時間\s*-?\s*(\d+)\s*秒"),
     # 萌獸屬性
     "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -321,6 +323,20 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
         "INT": ((8, 6), (6, 5)),
         "LUK": ((8, 6), (6, 5)),
     },
+    "帽子 (永恆)": {
+        "STR": ((9, 7), (7, 6)),
+        "DEX": ((9, 7), (7, 6)),
+        "INT": ((9, 7), (7, 6)),
+        "LUK": ((9, 7), (7, 6)),
+        "MaxHP": ((12, 9), None),
+    },
+    "帽子 (非永恆)": {
+        "STR": ((8, 6), (6, 5)),
+        "DEX": ((8, 6), (6, 5)),
+        "INT": ((8, 6), (6, 5)),
+        "LUK": ((8, 6), (6, 5)),
+        "MaxHP": ((11, 8), None),
+    },
     "萌獸": {
         "最終傷害": ((20, 20), None),
         "物理攻擊力": ((20, 20), None),
@@ -338,6 +354,8 @@ EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
     "輔助武器": ["物理攻擊力", "魔法攻擊力"],
     "手套 (永恆)": ["STR", "DEX", "INT", "LUK"],
     "手套 (非永恆)": ["STR", "DEX", "INT", "LUK"],
+    "帽子 (永恆)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
+    "帽子 (非永恆)": ["STR", "DEX", "INT", "LUK", "MaxHP"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
 }
 
@@ -349,10 +367,14 @@ STATS_WITH_ALL_STATS = {"STR", "DEX", "INT", "LUK"}
 # 手套類型
 GLOVE_TYPES = {"手套 (永恆)", "手套 (非永恆)"}
 
+# 帽子類型
+HAT_TYPES = {"帽子 (永恆)", "帽子 (非永恆)"}
+
 # 自訂模式可選屬性（依裝備類型分類）
 CUSTOM_SELECTABLE_ATTRIBUTES: dict[str, list[str]] = {
     "裝備": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "手套": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "爆擊傷害"],
+    "帽子": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "技能冷卻時間"],
     "武器": ["物理攻擊力", "魔法攻擊力"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "被動技能2"],
 }
@@ -366,6 +388,8 @@ _EQUIP_TO_CUSTOM_CATEGORY: dict[str, str] = {
     "輔助武器": "武器",
     "手套 (永恆)": "手套",
     "手套 (非永恆)": "手套",
+    "帽子 (永恆)": "帽子",
+    "帽子 (非永恆)": "帽子",
     "萌獸": "萌獸",
 }
 
@@ -400,6 +424,7 @@ def _check_line(
     target_min: int,
     all_stats_min: int | None,
     accept_crit3: bool,
+    accept_cooldown: bool = False,
 ) -> bool:
     """檢查單行潛能是否合格。"""
     # 目標屬性符合
@@ -410,6 +435,9 @@ def _check_line(
         return True
     # 手套：爆擊傷害 3% 也算合格
     if accept_crit3 and line.attribute == "爆擊傷害%" and line.value >= 3:
+        return True
+    # 帽子：技能冷卻時間 -1秒 也算合格
+    if accept_cooldown and line.attribute == "技能冷卻時間" and line.value >= 1:
         return True
     return False
 
@@ -452,6 +480,7 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
 
     (s_val, r_val), all_stats_thresholds = thresholds
     is_glove = equip in GLOVE_TYPES
+    is_hat = equip in HAT_TYPES
 
     # 萌獸：三排同屬性，不分 S潛/罕見
     if equip == "萌獸":
@@ -466,6 +495,9 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
 
     if is_glove:
         parts.append("爆擊傷害 至少 3%")
+
+    if is_hat:
+        parts.append("技能冷卻時間 -1秒")
 
     return [" 或 ".join(parts)]
 
@@ -500,6 +532,7 @@ class ConditionChecker:
         (self._s_val, self._r_val), all_stats = thresholds
         self._target_key = _attr_to_ocr_key(attr)
         self._is_glove = equip in GLOVE_TYPES
+        self._is_hat = equip in HAT_TYPES
         self._include_all = config.include_all_stats and all_stats is not None
 
         if self._include_all and all_stats:
@@ -536,6 +569,7 @@ class ConditionChecker:
                     target_min,
                     all_stats_min,
                     accept_crit3=self._is_glove,
+                    accept_cooldown=self._is_hat,
                 ):
                     ok = False
                     break
