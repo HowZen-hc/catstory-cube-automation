@@ -91,6 +91,7 @@ _OCR_FIXES: list[tuple[str, str]] = [
     # 屬性誤讀
     ("勿理", "物理"),
     ("厨性", "屬性"),
+    ("恢覆", "恢復"),
     ("MaxMOP", "MaxMP"),
 ]
 

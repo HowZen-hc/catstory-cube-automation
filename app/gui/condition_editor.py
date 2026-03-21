@@ -213,9 +213,7 @@ class ConditionEditor(QGroupBox):
         equip = self.equip_combo.currentText()
         all_attrs = get_custom_attributes(equip)
 
-        # 收集所有「任意一排」row 已選的屬性
         any_pos_rows = [r for r in self._custom_rows if r.position_combo.currentIndex() == 0]
-        taken = {r.attr_combo.currentText() for r in any_pos_rows}
 
         for row in self._custom_rows:
             row.attr_combo.blockSignals(True)
@@ -223,8 +221,8 @@ class ConditionEditor(QGroupBox):
             is_any_pos = row.position_combo.currentIndex() == 0
 
             if is_any_pos:
-                # 只排除其他任意一排 row 已選的屬性（保留自己的）
-                excluded = taken - {current}
+                # 排除「其他」任意一排 row 已選的屬性（用 identity 比較，非集合差集）
+                excluded = {r.attr_combo.currentText() for r in any_pos_rows if r is not row}
                 available = [a for a in all_attrs if a not in excluded]
             else:
                 available = all_attrs
