@@ -5,10 +5,12 @@ import numpy as np
 
 # 預處理放大倍率
 _SCALE_FACTOR = 1.5
+# 放大後四周補白邊（像素），防止邊緣文字被 OCR 截斷
+_PADDING_PX = 20
 
 
 def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
-    """放大 + 灰階 + 二值化，提升 OCR 辨識率。"""
+    """放大 + 灰階 + 二值化 + padding，提升 OCR 辨識率。"""
     # 放大
     h, w = image.shape[:2]
     scaled = cv2.resize(image, (int(w * _SCALE_FACTOR), int(h * _SCALE_FACTOR)), interpolation=cv2.INTER_CUBIC)
@@ -19,6 +21,11 @@ def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
     # 遊戲為深色底 + 淺色字，若背景偏暗（均值 < 128）則反轉為白底黑字
     if np.mean(binary) < 128:
         binary = cv2.bitwise_not(binary)
+    # 四周補白邊，避免邊緣字母被截斷
+    binary = cv2.copyMakeBorder(
+        binary, _PADDING_PX, _PADDING_PX, _PADDING_PX, _PADDING_PX,
+        cv2.BORDER_CONSTANT, value=255,
+    )
     # 轉回 BGR（PaddleOCR 預期 3 通道）
     return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
 
@@ -53,8 +60,8 @@ class PaddleOCREngine(OCREngine):
         polys = result[0].get("dt_polys", [])
         out: list[tuple[str, float]] = []
         for text, poly in zip(texts, polys):
-            # y 座標除以放大倍率，還原為原始座標
-            y_center = sum(pt[1] for pt in poly) / len(poly) / _SCALE_FACTOR
+            # y 座標扣除 padding 後除以放大倍率，還原為原始座標
+            y_center = (sum(pt[1] for pt in poly) / len(poly) - _PADDING_PX) / _SCALE_FACTOR
             out.append((text, y_center))
         return out
 
