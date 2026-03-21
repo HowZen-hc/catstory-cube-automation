@@ -64,6 +64,8 @@ class SettingsPanel(QGroupBox):
         # GPU 加速
         row4 = QHBoxLayout()
         self.gpu_checkbox = QCheckBox("啟用 GPU 加速（需要 NVIDIA 顯卡 + CUDA）")
+        self.gpu_checkbox.setEnabled(False)
+        self.gpu_checkbox.setToolTip("目前已停用此選項")
         row4.addWidget(self.gpu_checkbox)
         row4.addStretch()
         layout.addLayout(row4)
