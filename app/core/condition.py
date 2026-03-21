@@ -439,17 +439,25 @@ class ConditionChecker:
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
         """自訂模式：根據 position 決定比對方式。
 
-        position=0: 任意一排符合即可
-        position=1/2/3: 只檢查對應的 OCR 行
+        position=0（任意一排）：多條之間為 OR，任一條命中即可
+        position=1/2/3（指定位置）：每條都必須通過（AND）
         """
+        # 指定位置條件：全部必須通過（AND）
         for lc in self._custom_lines:
-            if lc.position == 0:
-                if not any(self._match_line(lc, line) for line in lines[:3]):
-                    return False
-            else:
+            if lc.position != 0:
                 idx = lc.position - 1
                 if idx >= len(lines) or not self._match_line(lc, lines[idx]):
                     return False
+
+        # 任意一排條件：至少一條命中即可（OR）
+        any_conds = [lc for lc in self._custom_lines if lc.position == 0]
+        if any_conds:
+            if not any(
+                any(self._match_line(lc, line) for line in lines[:3])
+                for lc in any_conds
+            ):
+                return False
+
         return True
 
     @staticmethod

@@ -1021,8 +1021,8 @@ class TestConditionCheckerCustomAnyPosition:
         ]
         assert checker.check(lines) is False
 
-    def test_multiple_any_position_and_logic(self):
-        """多條 任意一排 條件需全部滿足（AND 邏輯）"""
+    def test_multiple_any_position_or_logic_both_hit(self):
+        """多條 任意一排 條件為 OR 邏輯，兩條都命中"""
         config = AppConfig(
             use_preset=False,
             custom_lines=[
@@ -1038,7 +1038,8 @@ class TestConditionCheckerCustomAnyPosition:
         ]
         assert checker.check(lines) is True
 
-    def test_multiple_any_position_one_missing(self):
+    def test_multiple_any_position_or_logic_one_hit(self):
+        """多條 任意一排 OR 邏輯，只有一條命中也通過"""
         config = AppConfig(
             use_preset=False,
             custom_lines=[
@@ -1051,6 +1052,23 @@ class TestConditionCheckerCustomAnyPosition:
             PotentialLine("STR%", 9),
             PotentialLine("LUK%", 7),
             PotentialLine("INT%", 2),
+        ]
+        assert checker.check(lines) is True
+
+    def test_multiple_any_position_or_logic_none_hit(self):
+        """多條 任意一排 OR 邏輯，全部未命中則失敗"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("STR", 5, position=0),
+                LineCondition("DEX", 3, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("LUK%", 9),
+            PotentialLine("INT%", 7),
+            PotentialLine("MaxHP%", 2),
         ]
         assert checker.check(lines) is False
 
