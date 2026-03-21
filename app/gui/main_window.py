@@ -126,10 +126,8 @@ class MainWindow(QMainWindow):
         self.condition_editor.on_cube_type_changed(
             self.settings_panel.cube_type_combo.currentText()
         )
-        # 若已有潛能區域，啟用操作按鈕
-        if self.config.potential_region.is_set():
-            self.btn_start.setEnabled(True)
-            self.btn_ocr_test.setEnabled(True)
+        # 每次啟動都清除潛能區域，要求重新框選
+        self.config.potential_region = Region()
 
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
