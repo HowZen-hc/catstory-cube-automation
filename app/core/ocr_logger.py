@@ -35,11 +35,12 @@ def save_debug_image(roll_number: int, image: np.ndarray) -> None:
         import cv2
 
         DEBUG_IMG_DIR.mkdir(parents=True, exist_ok=True)
-        path = DEBUG_IMG_DIR / f"roll_{roll_number:05d}.png"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = DEBUG_IMG_DIR / f"ocr_{timestamp}_{roll_number:05d}.png"
         cv2.imwrite(str(path), image)
 
         # 只保留最近 5 張
-        imgs = sorted(DEBUG_IMG_DIR.glob("roll_*.png"))
+        imgs = sorted(DEBUG_IMG_DIR.glob("ocr_*.png"))
         for old in imgs[:-5]:
             old.unlink(missing_ok=True)
     except Exception:

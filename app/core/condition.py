@@ -82,6 +82,8 @@ _OCR_FIXES: list[tuple[str, str]] = [
 
 def _fix_ocr_text(text: str) -> str:
     """修正 OCR 常見誤讀字元。"""
+    # 移除 OCR 產生的多餘空格（如「魔 法攻擊力」→「魔法攻擊力」）
+    text = text.replace(" ", "")
     for wrong, correct in _OCR_FIXES:
         text = text.replace(wrong, correct)
     return text
@@ -89,10 +91,10 @@ def _fix_ocr_text(text: str) -> str:
 
 def parse_potential_line(text: str) -> PotentialLine:
     """解析單段 OCR 文字為 PotentialLine。"""
-    text = _fix_ocr_text(text)
+    fixed = _fix_ocr_text(text)
     # 先檢查數值型屬性（含 % 的較精確）
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
-        match = pattern.search(text)
+        match = pattern.search(fixed)
         if match:
             return PotentialLine(
                 attribute=attr_name,
@@ -101,7 +103,7 @@ def parse_potential_line(text: str) -> PotentialLine:
             )
     # 再檢查純文字屬性（無數值，作為 fallback）
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
-        if pattern.search(text):
+        if pattern.search(fixed):
             return PotentialLine(attribute=attr_name, value=0, raw_text=text)
     return PotentialLine(attribute="未知", value=0, raw_text=text)
 

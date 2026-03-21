@@ -32,8 +32,10 @@ class MainWindow(QMainWindow):
         self._worker: AutomationWorker | OCRTestWorker | None = None
         self._ocr_test_mode = False
         self._roll_count = 0
+        self._ui_loaded = False
         self._init_ui()
         self._load_config_to_ui()
+        self._ui_loaded = True
 
     def _init_ui(self) -> None:
         self.setWindowTitle("新楓之谷自動洗方塊")
@@ -54,15 +56,18 @@ class MainWindow(QMainWindow):
         self.settings_panel.cube_type_changed.connect(
             self.condition_editor.on_cube_type_changed
         )
+        self.settings_panel.cube_type_changed.connect(self._on_cube_type_changed)
         layout.addWidget(self.condition_editor)
 
         # 控制列
         control_layout = QHBoxLayout()
         self.btn_start = QPushButton("▶ 開始")
+        self.btn_start.setEnabled(False)
         self.btn_start.clicked.connect(self._on_start)
         control_layout.addWidget(self.btn_start)
 
         self.btn_ocr_test = QPushButton("🔍 測試 OCR")
+        self.btn_ocr_test.setEnabled(False)
         self.btn_ocr_test.clicked.connect(self._on_ocr_test)
         control_layout.addWidget(self.btn_ocr_test)
 
@@ -97,8 +102,19 @@ class MainWindow(QMainWindow):
         self._region_selector.region_selected.connect(self._set_potential_region)
         self._region_selector.show()
 
+    def _on_cube_type_changed(self, _cube_type: str) -> None:
+        """切換方塊類型時清除潛能區域，要求重新框選。"""
+        if not self._ui_loaded:
+            return
+        self.config.potential_region = Region()
+        self.btn_start.setEnabled(False)
+        self.btn_ocr_test.setEnabled(False)
+        self.status_bar.showMessage("已切換方塊類型，請重新框選潛能區域")
+
     def _set_potential_region(self, region: Region) -> None:
         self.config.potential_region = region
+        self.btn_start.setEnabled(True)
+        self.btn_ocr_test.setEnabled(True)
         self.status_bar.showMessage(
             f"潛能區域已設定: ({region.x}, {region.y}, {region.width}x{region.height})"
         )
@@ -110,6 +126,10 @@ class MainWindow(QMainWindow):
         self.condition_editor.on_cube_type_changed(
             self.settings_panel.cube_type_combo.currentText()
         )
+        # 若已有潛能區域，啟用操作按鈕
+        if self.config.potential_region.is_set():
+            self.btn_start.setEnabled(True)
+            self.btn_ocr_test.setEnabled(True)
 
     def _on_start(self) -> None:
         self.settings_panel.apply_to_config(self.config)
@@ -202,8 +222,9 @@ class MainWindow(QMainWindow):
 
     def _set_running_ui(self, running: bool) -> None:
         """切換執行/停止狀態的 UI。"""
-        self.btn_start.setEnabled(not running)
-        self.btn_ocr_test.setEnabled(not running)
+        has_region = self.config.potential_region.is_set()
+        self.btn_start.setEnabled(not running and has_region)
+        self.btn_ocr_test.setEnabled(not running and has_region)
         self.btn_stop.setEnabled(running)
         self.btn_stop.setText("■ 停止")
         self.btn_stop.setStyleSheet("")
