@@ -52,7 +52,7 @@ class AutomationWorker(QThread):
             return
 
         # 根據方塊類型選擇策略
-        if self.config.cube_type == "恢復附加方塊(紅色)":
+        if self.config.cube_type == "恢復附加方塊 (紅色)":
             strategy = CompareFlowStrategy(
                 self.config, screen, ocr, mouse, checker
             )

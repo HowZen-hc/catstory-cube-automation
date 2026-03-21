@@ -7,7 +7,7 @@ class TestConfigSaveLoad:
     def test_save_and_load(self, tmp_path: Path):
         path = tmp_path / "config.json"
         config = AppConfig(
-            cube_type="恢復附加方塊(紅色)",
+            cube_type="恢復附加方塊 (紅色)",
             equipment_type="手套 (250等+)",
             target_attribute="STR",
             include_all_stats=True,
@@ -17,7 +17,7 @@ class TestConfigSaveLoad:
         config.save(path)
         loaded = AppConfig.load(path)
 
-        assert loaded.cube_type == "恢復附加方塊(紅色)"
+        assert loaded.cube_type == "恢復附加方塊 (紅色)"
         assert loaded.equipment_type == "手套 (250等+)"
         assert loaded.target_attribute == "STR"
         assert loaded.include_all_stats is True
@@ -28,7 +28,7 @@ class TestConfigSaveLoad:
     def test_load_missing_file(self, tmp_path: Path):
         path = tmp_path / "nonexistent.json"
         config = AppConfig.load(path)
-        assert config.cube_type == "珍貴附加方塊(粉紅色)"
+        assert config.cube_type == "珍貴附加方塊 (粉紅色)"
         assert config.equipment_type == "永恆裝備·光輝套裝 (250等+)"
         assert config.delay_ms == 1000
 
@@ -36,7 +36,7 @@ class TestConfigSaveLoad:
         path = tmp_path / "bad.json"
         path.write_text("not valid json{{{")
         config = AppConfig.load(path)
-        assert config.cube_type == "珍貴附加方塊(粉紅色)"
+        assert config.cube_type == "珍貴附加方塊 (粉紅色)"
 
     def test_load_partial_data(self, tmp_path: Path):
         path = tmp_path / "partial.json"

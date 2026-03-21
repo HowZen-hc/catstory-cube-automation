@@ -37,7 +37,7 @@ class LineCondition:
 class AppConfig:
     """應用程式設定。"""
 
-    cube_type: str = "珍貴附加方塊(粉紅色)"
+    cube_type: str = "珍貴附加方塊 (粉紅色)"
     equipment_type: str = "永恆裝備·光輝套裝 (250等+)"
     target_attribute: str = "STR"
     include_all_stats: bool = False  # 含全屬性
@@ -71,7 +71,7 @@ class AppConfig:
                 LineCondition(**item) for item in raw_lines
             ] if raw_lines else [LineCondition()]
             return cls(
-                cube_type=data.get("cube_type", "珍貴附加方塊(粉紅色)"),
+                cube_type=data.get("cube_type", "珍貴附加方塊 (粉紅色)"),
                 equipment_type=data.get("equipment_type", "永恆裝備·光輝套裝 (250等+)"),
                 target_attribute=data.get("target_attribute", "STR"),
                 include_all_stats=data.get("include_all_stats", False),
