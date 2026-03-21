@@ -16,6 +16,9 @@ def preprocess_for_ocr(image: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(scaled, cv2.COLOR_BGR2GRAY)
     # OTSU 二值化
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 遊戲為深色底 + 淺色字，若背景偏暗（均值 < 128）則反轉為白底黑字
+    if np.mean(binary) < 128:
+        binary = cv2.bitwise_not(binary)
     # 轉回 BGR（PaddleOCR 預期 3 通道）
     return cv2.cvtColor(binary, cv2.COLOR_GRAY2BGR)
 
