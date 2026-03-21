@@ -27,5 +27,8 @@ class RollResult:
                 parts.append(line.attribute)
             else:
                 attr_name = line.attribute.removesuffix("%")
-                parts.append(f"{attr_name} +{line.value}%")
+                if line.attribute.endswith("%"):
+                    parts.append(f"{attr_name} +{line.value}%")
+                else:
+                    parts.append(f"{attr_name} +{line.value}")
         return " / ".join(parts)

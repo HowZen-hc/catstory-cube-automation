@@ -21,7 +21,7 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力率]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "總傷害%": re.compile(r"總傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "傷害%": re.compile(r"(?<![擊擎時終])傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "HP恢復效率%": re.compile(r"HP恢復道具及恢復技能效率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -67,12 +67,15 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("攻擎", "攻擊"),
     ("爆机率", "爆擊機率"),
     ("爆機率", "爆擊機率"),
+    ("爆率", "爆擊機率"),
     ("机率", "機率"),
     # 以角色等級為準系列
     ("等级", "等級"),
     ("级", "級"),
     ("为准", "為準"),
     ("為准", "為準"),
+    # 屬性誤讀
+    ("厨性", "屬性"),
 ]
 
 

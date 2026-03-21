@@ -24,7 +24,9 @@ def _format_parsed(parsed: PotentialLine) -> str:
     if parsed.value == 0:
         return parsed.attribute
     attr_name = parsed.attribute.removesuffix("%")
-    return f"{attr_name} +{parsed.value}%"
+    if parsed.attribute.endswith("%"):
+        return f"{attr_name} +{parsed.value}%"
+    return f"{attr_name} +{parsed.value}"
 
 
 def save_debug_image(roll_number: int, image: np.ndarray) -> None:
