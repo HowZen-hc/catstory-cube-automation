@@ -26,17 +26,17 @@ jobs:
       - name: Build with PyInstaller
         run: uv run pyinstaller cube_automation.spec
 
-      - name: Zip output
-        run: |
-          $name = if ($env:GITHUB_REF -like 'refs/tags/*') { "$($env:GITHUB_REF_NAME)" } else { "$($env:GITHUB_SHA.Substring(0,7))" }
-          Compress-Archive -Path dist/CubeAutomation/* -DestinationPath "dist/CubeAutomation-${name}-windows.zip"
-
       - name: Upload artifact (for manual builds)
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
           name: CubeAutomation-windows
-          path: dist/CubeAutomation-*-windows.zip
+          path: dist/CubeAutomation/
+
+      - name: Zip output (for tag releases)
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          Compress-Archive -Path dist/CubeAutomation/* -DestinationPath "dist/CubeAutomation-$($env:GITHUB_REF_NAME)-windows.zip"
 
       - name: Create Release (for tag builds)
         if: startsWith(github.ref, 'refs/tags/')
