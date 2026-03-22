@@ -106,7 +106,15 @@ class PaddleOCREngine(OCREngine):
         from paddleocr import PaddleOCR
 
         device = "gpu:0" if use_gpu else "cpu"
-        self._ocr = PaddleOCR(lang="chinese_cht", device=device, enable_mkldnn=False)
+        self._ocr = PaddleOCR(
+            lang="chinese_cht",
+            device=device,
+            enable_mkldnn=False,
+            # 遊戲截圖不需要文件矯正，停用以避免載入 UVDoc 模型
+            # （UVDoc 在部分機器上會觸發 PermissionError）
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
+        )
 
     def recognize(self, image: np.ndarray, scale_factor: float = _SCALE_FACTOR) -> list[tuple[str, float]]:
         processed = preprocess_for_ocr(image, scale_factor=scale_factor)
