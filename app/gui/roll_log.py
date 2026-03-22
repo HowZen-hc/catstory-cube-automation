@@ -22,7 +22,10 @@ class RollLog(QGroupBox):
     def add_result(self, result: RollResult) -> None:
         self._results.append(result)
         icon = "\u2705" if result.matched else "\u274c"
-        text = f"#{result.roll_number:05d} | {icon} {result.summary()}"
+        if result.roll_number == 0:
+            text = f"[初始潛能] | {icon} {result.summary()}"
+        else:
+            text = f"#{result.roll_number:05d} | {icon} {result.summary()}"
         item = QListWidgetItem(text)
         self.list_widget.addItem(item)
         self.list_widget.scrollToBottom()
@@ -37,13 +40,14 @@ class RollLog(QGroupBox):
         self.list_widget.clear()
 
     def export_csv(self) -> str:
-        lines = ["roll_number,matched,line1,line2,line3"]
+        # 從實際結果推斷欄數（取最大 line 數，至少 2）
+        max_cols = max((len(r.lines) for r in self._results), default=3)
+        header_cols = ",".join(f"line{i+1}" for i in range(max_cols))
+        lines = [f"roll_number,matched,{header_cols}"]
         for r in self._results:
             potentials = [l.raw_text for l in r.lines]
-            while len(potentials) < 3:
+            while len(potentials) < max_cols:
                 potentials.append("")
-            lines.append(
-                f"{r.roll_number},{r.matched},"
-                f'"{potentials[0]}","{potentials[1]}","{potentials[2]}"'
-            )
+            quoted = ",".join(f'"{p}"' for p in potentials)
+            lines.append(f"{r.roll_number},{r.matched},{quoted}")
         return "\n".join(lines)
