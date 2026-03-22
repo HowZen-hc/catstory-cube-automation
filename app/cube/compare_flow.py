@@ -1,7 +1,13 @@
-from app.core.condition import parse_potential_lines
+import logging
+import time
+
+from app.core.condition import get_num_lines, parse_potential_lines
+from app.core.ocr import get_scale_factor
 from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
+
+logger = logging.getLogger(__name__)
 
 
 class CompareFlowStrategy(CubeStrategy):
@@ -30,6 +36,7 @@ class CompareFlowStrategy(CubeStrategy):
 
         # 6. 判斷是否符合目標
         matched = self.checker.check(after_lines)
+        logger.info("#%05d 判斷結果: %s", roll_number, "✅ 符合" if matched else "❌ 不符合")
 
         # 7. 比較新舊，決定保留或取消
         if self._is_better(after_lines, before_lines):
@@ -48,10 +55,21 @@ class CompareFlowStrategy(CubeStrategy):
     def _read_potential(self, roll_number: int) -> list[PotentialLine]:
         if not self.config.potential_region.is_set():
             return []
+        t0 = time.perf_counter()
         img = self.screen.capture(self.config.potential_region)
-        texts = self.ocr.recognize(img)
-        lines = parse_potential_lines(texts)
+        t_cap = time.perf_counter()
+        scale = get_scale_factor(self.config.cube_type)
+        texts = self.ocr.recognize(img, scale_factor=scale)
+        t_ocr = time.perf_counter()
+        num_lines = get_num_lines(self.config.cube_type)
+        lines = parse_potential_lines(texts, num_rows=num_lines)
         log_ocr_result(roll_number, texts, lines)
+        logger.info(
+            "#%05d 耗時: 截圖 %.0fms / OCR %.0fms",
+            roll_number,
+            (t_cap - t0) * 1000,
+            (t_ocr - t_cap) * 1000,
+        )
         if not texts:
             save_debug_image(roll_number, img)
         return lines

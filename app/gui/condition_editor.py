@@ -13,14 +13,19 @@ from PyQt6.QtWidgets import (
 from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
-    GLOVE_TYPES,
-    STATS_WITH_ALL_STATS,
+    ETERNAL_EQUIP_TYPES,
     generate_condition_summary,
     get_custom_attributes,
+    get_num_lines,
 )
 from app.models.config import AppConfig, LineCondition
 
-_MAX_CUSTOM_ROWS = 3
+_MAX_OR_ROWS = 5
+
+_MODE_PRESET = "預設規則"
+_MODE_AND = "逐排指定"
+_MODE_OR = "符合任一"
+_MODES = [_MODE_PRESET, _MODE_AND, _MODE_OR]
 
 
 class _CustomRowWidget(QWidget):
@@ -32,10 +37,11 @@ class _CustomRowWidget(QWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self._label = QLabel(f"第{index + 1}排:")
-        layout.addWidget(self._label)
+        self.position_label = QLabel()
+        layout.addWidget(self.position_label)
 
         self.attr_combo = QComboBox()
+        self.prev_attr = ""
         layout.addWidget(self.attr_combo)
 
         self._ge_label = QLabel("至少")
@@ -56,15 +62,12 @@ class _CustomRowWidget(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-    def update_label(self, index: int) -> None:
-        self.index = index
-        self._label.setText(f"第{index + 1}排:")
-
     def update_visibility(self) -> None:
         """根據屬性更新 spin 顯示。"""
         attr = self.attr_combo.currentText()
-        self.value_spin.setVisible(attr != "被動技能2")
-        self._ge_label.setVisible(attr != "被動技能2")
+        hide_spin = attr in ("被動技能2", "技能冷卻時間")
+        self.value_spin.setVisible(not hide_spin)
+        self._ge_label.setVisible(not hide_spin)
 
 
 class ConditionEditor(QGroupBox):
@@ -72,6 +75,8 @@ class ConditionEditor(QGroupBox):
 
     def __init__(self, parent=None) -> None:
         super().__init__("目標條件", parent)
+        self._num_lines = 3  # 預設 3 排，由 on_cube_type_changed 更新
+        self._cube_type = ""  # 由 on_cube_type_changed 更新
         self._init_ui()
 
     def _init_ui(self) -> None:
@@ -85,16 +90,25 @@ class ConditionEditor(QGroupBox):
         self.equip_combo.addItems([t for t in EQUIPMENT_TYPES if t != "萌獸"])
         self.equip_combo.currentTextChanged.connect(self._on_equip_changed)
         row1.addWidget(self.equip_combo)
+        # 永恆裝備 checkbox（手套/帽子用）
+        self.eternal_check = QCheckBox("永恆裝備")
+        self.eternal_check.setChecked(True)
+        self.eternal_check.stateChanged.connect(self._update_summary)
+        row1.addWidget(self.eternal_check)
         row1.addStretch()
         self._equip_row = QWidget()
         self._equip_row.setLayout(row1)
         layout.addWidget(self._equip_row)
 
-        # 使用預設規則 checkbox
-        self.preset_check = QCheckBox("使用預設規則")
-        self.preset_check.setChecked(True)
-        self.preset_check.stateChanged.connect(self._on_preset_toggled)
-        layout.addWidget(self.preset_check)
+        # 比對模式下拉選單
+        mode_row = QHBoxLayout()
+        mode_row.addWidget(QLabel("比對模式:"))
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(_MODES)
+        self.mode_combo.currentTextChanged.connect(self._on_mode_changed)
+        mode_row.addWidget(self.mode_combo)
+        mode_row.addStretch()
+        layout.addLayout(mode_row)
 
         # === 預設模式 widgets ===
         self._preset_widget = QWidget()
@@ -110,11 +124,6 @@ class ConditionEditor(QGroupBox):
         row2.addWidget(self.attr_combo)
         row2.addStretch()
         preset_layout.addLayout(row2)
-
-        # 含全屬性
-        self.all_stats_check = QCheckBox("含全屬性")
-        self.all_stats_check.stateChanged.connect(self._update_summary)
-        preset_layout.addWidget(self.all_stats_check)
 
         self._preset_widget.setLayout(preset_layout)
         layout.addWidget(self._preset_widget)
@@ -150,11 +159,22 @@ class ConditionEditor(QGroupBox):
 
     # ── 自訂模式動態排管理 ──
 
+    def _current_mode(self) -> str:
+        return self.mode_combo.currentText()
+
+    def _max_rows(self) -> int:
+        if self._current_mode() == _MODE_AND:
+            return self._num_lines
+        return _MAX_OR_ROWS
+
     def _add_custom_row(self, lc: LineCondition | None = None) -> _CustomRowWidget:
         """新增一排自訂條件。"""
         index = len(self._custom_rows)
         removable = index > 0  # 第一排不可移除
         row = _CustomRowWidget(index, removable)
+
+        # 設定位置標籤
+        self._update_row_position_label(row, index)
 
         # 填入屬性選單
         equip = self.equip_combo.currentText()
@@ -166,10 +186,20 @@ class ConditionEditor(QGroupBox):
             if cidx >= 0:
                 row.attr_combo.setCurrentIndex(cidx)
             row.value_spin.setValue(lc.min_value)
+        elif self._current_mode() == _MODE_OR and self._custom_rows:
+            # 符合任一模式：自動選第一個未被使用的屬性
+            used = {r.attr_combo.currentText() for r in self._custom_rows}
+            for attr in custom_attrs:
+                if attr not in used:
+                    row.attr_combo.setCurrentText(attr)
+                    break
+
+        # 記錄初始值供互換用
+        row.prev_attr = row.attr_combo.currentText()
 
         # 連接 signals
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
-        row.value_spin.valueChanged.connect(self._on_custom_changed)
+        row.value_spin.valueChanged.connect(self._update_summary)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
 
         self._custom_rows.append(row)
@@ -181,45 +211,85 @@ class ConditionEditor(QGroupBox):
         self._update_summary()
         return row
 
+    def _update_row_position_label(self, row: _CustomRowWidget, index: int) -> None:
+        """根據模式更新排的位置標籤。"""
+        if self._current_mode() == _MODE_AND:
+            row.position_label.setText(f"第 {index + 1} 排:")
+            row.position_label.setVisible(True)
+        else:
+            row.position_label.setVisible(False)
+
     def _remove_custom_row(self, row: _CustomRowWidget) -> None:
         """移除一排自訂條件。"""
         if row in self._custom_rows:
             self._custom_rows.remove(row)
             self._custom_layout.removeWidget(row)
             row.deleteLater()
-            # 重新編號
+            # 更新剩餘排的 index、remove 按鈕、位置標籤
             for i, r in enumerate(self._custom_rows):
-                r.update_label(i)
+                r.index = i
                 r.remove_btn.setVisible(i > 0)
+                self._update_row_position_label(r, i)
             self._update_add_btn_visibility()
             self._update_summary()
 
     def _update_add_btn_visibility(self) -> None:
-        self._add_row_btn.setVisible(len(self._custom_rows) < _MAX_CUSTOM_ROWS)
+        self._add_row_btn.setVisible(len(self._custom_rows) < self._max_rows())
+
+    def _swap_or_attr(self, changed_row: _CustomRowWidget) -> None:
+        """符合任一模式屬性互換：若其他 row 有相同屬性，交換兩排屬性。"""
+        if self._current_mode() != _MODE_OR:
+            changed_row.prev_attr = changed_row.attr_combo.currentText()
+            return
+        new_attr = changed_row.attr_combo.currentText()
+        for row in self._custom_rows:
+            if row is changed_row:
+                continue
+            if row.attr_combo.currentText() == new_attr:
+                row.attr_combo.blockSignals(True)
+                row.attr_combo.setCurrentText(changed_row.prev_attr)
+                row.prev_attr = changed_row.prev_attr
+                row.update_visibility()
+                row.attr_combo.blockSignals(False)
+                break
+        changed_row.prev_attr = new_attr
 
     # ── 萌獸方塊連動 ──
 
     def on_cube_type_changed(self, cube_type: str) -> None:
         """當方塊類型改變時由 main_window 呼叫。"""
+        self._num_lines = get_num_lines(cube_type)
+        self._cube_type = cube_type
         if cube_type == "萌獸方塊":
             # 動態加入萌獸選項並選取
             if self.equip_combo.findText("萌獸") < 0:
                 self.equip_combo.addItem("萌獸")
             self.equip_combo.setCurrentText("萌獸")
             self._equip_row.setVisible(False)
+            self.mode_combo.setCurrentText(_MODE_PRESET)
         else:
             # 移除萌獸選項
             idx = self.equip_combo.findText("萌獸")
             if idx >= 0:
                 self.equip_combo.removeItem(idx)
             self._equip_row.setVisible(True)
+            # 非萌獸才重設裝備回第一項
+            self._reset_to_defaults()
 
-    # ── 預設/自訂切換 ──
+    # ── 模式切換 ──
 
-    def _on_preset_toggled(self, _state: int) -> None:
-        use_preset = self.preset_check.isChecked()
-        self._preset_widget.setVisible(use_preset)
-        self._custom_widget.setVisible(not use_preset)
+    def _reset_to_defaults(self) -> None:
+        """重設：裝備回第一項、比對模式回預設、自訂排重建。"""
+        self.equip_combo.setCurrentIndex(0)
+        self.mode_combo.setCurrentText(_MODE_PRESET)
+
+    def _on_mode_changed(self, mode: str) -> None:
+        self._preset_widget.setVisible(mode == _MODE_PRESET)
+        self._custom_widget.setVisible(mode in (_MODE_AND, _MODE_OR))
+        self._update_eternal_visibility()
+        # 切換模式時重建自訂排
+        if mode in (_MODE_AND, _MODE_OR):
+            self._reset_custom_rows()
         self._update_summary()
 
     # ── 預設模式 handlers ──
@@ -230,38 +300,25 @@ class ConditionEditor(QGroupBox):
         self.attr_combo.clear()
         self.attr_combo.addItems(attrs)
         self.attr_combo.blockSignals(False)
+        # 永恆 checkbox：手套/帽子切換時預設勾選
+        if equip_type in ETERNAL_EQUIP_TYPES:
+            self.eternal_check.setChecked(True)
+        self._update_eternal_visibility()
         self._on_attr_changed(self.attr_combo.currentText())
-        # 切換裝備類型時重設自訂排為 1 排
+        # 切換裝備類型時：比對模式回預設 + 自訂排重建
+        self.mode_combo.setCurrentText(_MODE_PRESET)
         self._reset_custom_rows()
 
-    def _on_attr_changed(self, attr: str) -> None:
-        equip = self.equip_combo.currentText()
-        # 全屬性 checkbox 只在 STR/DEX/INT/LUK 時顯示
-        can_all_stats = attr in STATS_WITH_ALL_STATS and equip not in GLOVE_TYPES
-        # 手套也可以含全屬性（第2、3行）
-        if equip in GLOVE_TYPES and attr in STATS_WITH_ALL_STATS:
-            can_all_stats = True
-        self.all_stats_check.setVisible(can_all_stats)
-        if not can_all_stats:
-            self.all_stats_check.setChecked(False)
+    def _update_eternal_visibility(self) -> None:
+        """永恆 checkbox 只在手套/帽子 + 預設模式下顯示。"""
+        is_eternal_equip = self.equip_combo.currentText() in ETERNAL_EQUIP_TYPES
+        is_preset = self._current_mode() == _MODE_PRESET
+        self.eternal_check.setVisible(is_eternal_equip and is_preset)
+
+    def _on_attr_changed(self, _attr: str) -> None:
         self._update_summary()
 
     # ── 自訂模式 handlers ──
-
-    def _refresh_custom_attr_combos(self, equip_type: str) -> None:
-        """根據裝備類型更新自訂模式的屬性下拉選單。"""
-        custom_attrs = get_custom_attributes(equip_type)
-        for row in self._custom_rows:
-            row.attr_combo.blockSignals(True)
-            prev = row.attr_combo.currentText()
-            row.attr_combo.clear()
-            row.attr_combo.addItems(custom_attrs)
-            idx = row.attr_combo.findText(prev)
-            if idx >= 0:
-                row.attr_combo.setCurrentIndex(idx)
-            row.attr_combo.blockSignals(False)
-            row.update_visibility()
-        self._update_summary()
 
     def _reset_custom_rows(self) -> None:
         """清除所有自訂排，重建 1 排（使用新裝備類型的預設屬性）。"""
@@ -272,18 +329,15 @@ class ConditionEditor(QGroupBox):
         self._add_custom_row()
 
     def _on_custom_attr_changed(self, attr: str) -> None:
-        """自訂模式屬性變更：更新 visibility + 最終傷害預設值。"""
-        # 找到觸發的 row
+        """自訂模式屬性變更：更新 visibility + 最終傷害預設值 + 互換。"""
         sender = self.sender()
         for row in self._custom_rows:
             if row.attr_combo is sender:
                 row.update_visibility()
                 if attr == "最終傷害":
                     row.value_spin.setValue(20)
+                self._swap_or_attr(row)
                 break
-        self._update_summary()
-
-    def _on_custom_changed(self) -> None:
         self._update_summary()
 
     # ── 條件預覽 ──
@@ -294,21 +348,25 @@ class ConditionEditor(QGroupBox):
         self.summary_label.setText("\n".join(lines))
 
     def _build_config_for_summary(self) -> AppConfig:
-        use_preset = self.preset_check.isChecked()
-        if use_preset:
+        mode = self._current_mode()
+        if mode == _MODE_PRESET:
             return AppConfig(
+                cube_type=self._cube_type,
                 equipment_type=self.equip_combo.currentText(),
                 target_attribute=self.attr_combo.currentText(),
-                include_all_stats=self.all_stats_check.isChecked(),
+                is_eternal=self.eternal_check.isChecked(),
                 use_preset=True,
             )
         custom_lines = []
-        for row in self._custom_rows:
+        for i, row in enumerate(self._custom_rows):
+            position = (i + 1) if mode == _MODE_AND else 0
             custom_lines.append(LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
+                position=position,
             ))
         return AppConfig(
+            cube_type=self._cube_type,
             equipment_type=self.equip_combo.currentText(),
             use_preset=False,
             custom_lines=custom_lines,
@@ -317,16 +375,18 @@ class ConditionEditor(QGroupBox):
     # ── config 讀寫 ──
 
     def apply_to_config(self, config: AppConfig) -> None:
+        mode = self._current_mode()
         config.equipment_type = self.equip_combo.currentText()
         config.target_attribute = self.attr_combo.currentText()
-        config.include_all_stats = self.all_stats_check.isChecked()
-        config.use_preset = self.preset_check.isChecked()
+        config.is_eternal = self.eternal_check.isChecked()
+        config.use_preset = (mode == _MODE_PRESET)
         config.custom_lines = [
             LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
+                position=(i + 1) if mode == _MODE_AND else 0,
             )
-            for row in self._custom_rows
+            for i, row in enumerate(self._custom_rows)
         ]
 
     def load_from_config(self, config: AppConfig) -> None:
@@ -336,18 +396,24 @@ class ConditionEditor(QGroupBox):
         attr_idx = self.attr_combo.findText(config.target_attribute)
         if attr_idx >= 0:
             self.attr_combo.setCurrentIndex(attr_idx)
-        self.all_stats_check.setChecked(config.include_all_stats)
-        self.preset_check.setChecked(config.use_preset)
+        self.eternal_check.setChecked(config.is_eternal)
 
-        # 載入自訂條件：先清除所有排，再依 config 重建
+        # 從 config 推導模式
+        if config.use_preset:
+            mode = _MODE_PRESET
+        elif config.custom_lines and config.custom_lines[0].position > 0:
+            mode = _MODE_AND
+        else:
+            mode = _MODE_OR
+        self.mode_combo.setCurrentText(mode)
+
+        # 載入自訂排
+        max_rows = self._num_lines if mode == _MODE_AND else _MAX_OR_ROWS
         while self._custom_rows:
             row = self._custom_rows.pop()
             self._custom_layout.removeWidget(row)
             row.deleteLater()
-
-        for lc in config.custom_lines[:_MAX_CUSTOM_ROWS]:
+        for lc in config.custom_lines[:max_rows]:
             self._add_custom_row(lc)
-
-        # 若 config 沒有任何自訂排，至少建 1 排
         if not self._custom_rows:
             self._add_custom_row()
