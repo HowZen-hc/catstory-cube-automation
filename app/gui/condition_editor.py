@@ -37,8 +37,10 @@ class _CustomRowWidget(QWidget):
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.position_label = QLabel()
-        layout.addWidget(self.position_label)
+        self.position_combo = QComboBox()
+        self.position_combo.setFixedWidth(85)
+        self.prev_position: int | None = None
+        layout.addWidget(self.position_combo)
 
         self.attr_combo = QComboBox()
         self.prev_attr = ""
@@ -173,9 +175,6 @@ class ConditionEditor(QGroupBox):
         removable = index > 0  # 第一排不可移除
         row = _CustomRowWidget(index, removable)
 
-        # 設定位置標籤
-        self._update_row_position_label(row, index)
-
         # 填入屬性選單
         equip = self.equip_combo.currentText()
         custom_attrs = get_custom_attributes(equip)
@@ -201,23 +200,59 @@ class ConditionEditor(QGroupBox):
         row.attr_combo.currentTextChanged.connect(self._on_custom_attr_changed)
         row.value_spin.valueChanged.connect(self._update_summary)
         row.remove_btn.clicked.connect(lambda: self._remove_custom_row(row))
+        row.position_combo.currentIndexChanged.connect(self._on_position_changed)
 
         self._custom_rows.append(row)
         # 插在 add 按鈕之前
         self._custom_layout.insertWidget(self._custom_layout.count() - 1, row)
+
+        # 刷新 position combos（填入所有排）
+        self._refresh_position_combos()
+
+        # 設定初始排位
+        if lc and lc.position > 0 and self._current_mode() == _MODE_AND:
+            idx = row.position_combo.findData(lc.position)
+            if idx >= 0:
+                row.position_combo.blockSignals(True)
+                row.position_combo.setCurrentIndex(idx)
+                row.position_combo.blockSignals(False)
+        elif self._current_mode() == _MODE_AND:
+            # 自動選第一個未被使用的排
+            used = {r.position_combo.currentData() for r in self._custom_rows if r is not row}
+            for i in range(1, self._num_lines + 1):
+                if i not in used:
+                    idx = row.position_combo.findData(i)
+                    if idx >= 0:
+                        row.position_combo.blockSignals(True)
+                        row.position_combo.setCurrentIndex(idx)
+                        row.position_combo.blockSignals(False)
+                    break
+        row.prev_position = row.position_combo.currentData()
 
         self._update_add_btn_visibility()
         row.update_visibility()
         self._update_summary()
         return row
 
-    def _update_row_position_label(self, row: _CustomRowWidget, index: int) -> None:
-        """根據模式更新排的位置標籤。"""
-        if self._current_mode() == _MODE_AND:
-            row.position_label.setText(f"第 {index + 1} 排:")
-            row.position_label.setVisible(True)
-        else:
-            row.position_label.setVisible(False)
+    def _refresh_position_combos(self) -> None:
+        """刷新所有排的 position combo：AND 模式顯示全部排，OR 模式隱藏。"""
+        is_and = self._current_mode() == _MODE_AND
+        for row in self._custom_rows:
+            row.position_combo.setVisible(is_and)
+        if not is_and:
+            return
+
+        for row in self._custom_rows:
+            current = row.position_combo.currentData()
+            row.position_combo.blockSignals(True)
+            row.position_combo.clear()
+            for i in range(1, self._num_lines + 1):
+                row.position_combo.addItem(f"第 {i} 排", i)
+            if current is not None:
+                idx = row.position_combo.findData(current)
+                if idx >= 0:
+                    row.position_combo.setCurrentIndex(idx)
+            row.position_combo.blockSignals(False)
 
     def _remove_custom_row(self, row: _CustomRowWidget) -> None:
         """移除一排自訂條件。"""
@@ -225,11 +260,11 @@ class ConditionEditor(QGroupBox):
             self._custom_rows.remove(row)
             self._custom_layout.removeWidget(row)
             row.deleteLater()
-            # 更新剩餘排的 index、remove 按鈕、位置標籤
+            # 更新剩餘排的 index、remove 按鈕、position combos
             for i, r in enumerate(self._custom_rows):
                 r.index = i
                 r.remove_btn.setVisible(i > 0)
-                self._update_row_position_label(r, i)
+            self._refresh_position_combos()
             self._update_add_btn_visibility()
             self._update_summary()
 
@@ -328,6 +363,30 @@ class ConditionEditor(QGroupBox):
             row.deleteLater()
         self._add_custom_row()
 
+    def _on_position_changed(self) -> None:
+        """AND 模式排位變更：選到已被佔用的排時，與對方交換。"""
+        if self._current_mode() != _MODE_AND:
+            return
+        sender = self.sender()
+        for changed_row in self._custom_rows:
+            if changed_row.position_combo is sender:
+                new_pos = changed_row.position_combo.currentData()
+                old_pos = changed_row.prev_position
+                for other in self._custom_rows:
+                    if other is changed_row:
+                        continue
+                    if other.position_combo.currentData() == new_pos:
+                        other.position_combo.blockSignals(True)
+                        idx = other.position_combo.findData(old_pos)
+                        if idx >= 0:
+                            other.position_combo.setCurrentIndex(idx)
+                        other.prev_position = old_pos
+                        other.position_combo.blockSignals(False)
+                        break
+                changed_row.prev_position = new_pos
+                break
+        self._update_summary()
+
     def _on_custom_attr_changed(self, attr: str) -> None:
         """自訂模式屬性變更：更新 visibility + 最終傷害預設值 + 互換。"""
         sender = self.sender()
@@ -358,8 +417,8 @@ class ConditionEditor(QGroupBox):
                 use_preset=True,
             )
         custom_lines = []
-        for i, row in enumerate(self._custom_rows):
-            position = (i + 1) if mode == _MODE_AND else 0
+        for row in self._custom_rows:
+            position = (row.position_combo.currentData() or 0) if mode == _MODE_AND else 0
             custom_lines.append(LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
@@ -384,9 +443,9 @@ class ConditionEditor(QGroupBox):
             LineCondition(
                 attribute=row.attr_combo.currentText(),
                 min_value=row.value_spin.value(),
-                position=(i + 1) if mode == _MODE_AND else 0,
+                position=(row.position_combo.currentData() or 0) if mode == _MODE_AND else 0,
             )
-            for i, row in enumerate(self._custom_rows)
+            for row in self._custom_rows
         ]
 
     def load_from_config(self, config: AppConfig) -> None:
