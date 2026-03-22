@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:  # allows manual trigger from any branch
 
 permissions:
   contents: write
@@ -26,10 +27,20 @@ jobs:
         run: uv run pyinstaller cube_automation.spec
 
       - name: Zip output
-        run: Compress-Archive -Path dist/CubeAutomation/* -DestinationPath dist/CubeAutomation-${{ github.ref_name }}-windows.zip
+        run: |
+          $name = if ($env:GITHUB_REF -like 'refs/tags/*') { "$($env:GITHUB_REF_NAME)" } else { "$($env:GITHUB_SHA.Substring(0,7))" }
+          Compress-Archive -Path dist/CubeAutomation/* -DestinationPath "dist/CubeAutomation-${name}-windows.zip"
 
-      - name: Create Release
+      - name: Upload artifact (for manual builds)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: CubeAutomation-windows
+          path: dist/CubeAutomation-*-windows.zip
+
+      - name: Create Release (for tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/CubeAutomation-${{ github.ref_name }}-windows.zip
+          files: dist/CubeAutomation-*-windows.zip
           generate_release_notes: true
