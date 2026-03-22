@@ -13,11 +13,39 @@ from pathlib import Path
 
 block_cipher = None
 
+# PaddleX pipeline/module config YAMLs (required at runtime by PaddleOCR)
+_paddlex_pkg = Path(sys.prefix, "lib", "python" + ".".join(map(str, sys.version_info[:2])),
+                    "site-packages", "paddlex")
+# Windows: Lib/site-packages/paddlex
+if not _paddlex_pkg.exists():
+    _paddlex_pkg = Path(sys.prefix, "Lib", "site-packages", "paddlex")
+
+_paddlex_datas = []
+if _paddlex_pkg.exists():
+    _configs = _paddlex_pkg / "configs"
+    if _configs.exists():
+        _paddlex_datas.append((str(_configs), "paddlex/configs"))
+
+# PaddlePaddle native libs (mklml.dll, libiomp5md.dll, dnnl.dll, etc.)
+# loaded at runtime via LoadLibrary — PyInstaller cannot detect them.
+_paddle_pkg = Path(sys.prefix, "lib", "python" + ".".join(map(str, sys.version_info[:2])),
+                   "site-packages", "paddle")
+if not _paddle_pkg.exists():
+    _paddle_pkg = Path(sys.prefix, "Lib", "site-packages", "paddle")
+
+_paddle_binaries = []
+if _paddle_pkg.exists():
+    _libs = _paddle_pkg / "libs"
+    if _libs.exists():
+        for _f in _libs.iterdir():
+            if _f.is_file():
+                _paddle_binaries.append((str(_f), "."))
+
 a = Analysis(
     ["main.py"],
     pathex=[],
-    binaries=[],
-    datas=[],
+    binaries=_paddle_binaries,
+    datas=_paddlex_datas,
     hiddenimports=[
         "paddleocr",
         "paddle",
@@ -32,15 +60,15 @@ a = Analysis(
         "pluggy",
         # 不需要的標準庫
         "tkinter",
-        "unittest",
+        # "unittest",  # paddle.utils.cpp_extension needs it
         "doctest",
-        "pdb",
+        # "pdb",  # paddle.jit.dy2static needs it
         "profile",
         "pstats",
         # 不需要的大型套件
         "matplotlib",
         "scipy",
-        "pandas",
+        # "pandas",  # PaddleOCR (paddlex) 需要 pandas，不可排除
         "IPython",
         "notebook",
         "jupyter",
@@ -80,7 +108,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,  # 除錯用，確認正常後改回 False
+    console=False,
     icon=None,  # 可替換為 .ico 檔案路徑
 )
 
@@ -91,6 +119,6 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=True,
-    upx_exclude=[],
+    upx_exclude=["paddle*.dll", "paddle*.pyd", "cv2*.pyd", "libopenblas*"],
     name="CubeAutomation",
 )

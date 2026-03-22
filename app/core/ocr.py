@@ -50,11 +50,58 @@ class PaddleOCREngine(OCREngine):
 
     def __init__(self, use_gpu: bool = False) -> None:
         import os
+        import sys
 
         from app.paths import MODEL_DIR
 
         os.environ["FLAGS_use_mkldnn"] = "0"
         os.environ["PADDLEOCR_HOME"] = str(MODEL_DIR)
+
+        # Ensure paddle native libs (mklml.dll, etc.) are findable in
+        # the PyInstaller bundle directory.
+        if getattr(sys, "frozen", False):
+            bundle_dir = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+            if hasattr(os, "add_dll_directory"):
+                os.add_dll_directory(bundle_dir)
+
+        # PyInstaller strips .dist-info metadata, causing paddlex
+        # is_dep_available() to return False for bundled packages.
+        # Many paddlex modules conditionally import packages (e.g. cv2)
+        # at module level using is_dep_available(), so we must patch
+        # BEFORE any paddlex module is imported — not after.
+        if getattr(sys, "frozen", False):
+            import importlib.metadata as _im
+            import importlib.util
+
+            if not getattr(_im, "_frozen_patched", False):
+                _orig_version = _im.version
+                # Dist-name → import-name for packages where they differ
+                _DIST_TO_IMPORT = {
+                    "opencv-contrib-python": "cv2",
+                    "opencv-python": "cv2",
+                    "opencv-python-headless": "cv2",
+                    "Pillow": "PIL",
+                    "scikit-learn": "sklearn",
+                    "pyyaml": "yaml",
+                    "python-dateutil": "dateutil",
+                    "python-bidi": "bidi",
+                    "beautifulsoup4": "bs4",
+                    "Jinja2": "jinja2",
+                }
+
+                def _frozen_version(pkg):
+                    try:
+                        return _orig_version(pkg)
+                    except _im.PackageNotFoundError:
+                        # Only fake version for packages actually bundled;
+                        # excluded packages (e.g. matplotlib) must stay missing.
+                        mod = _DIST_TO_IMPORT.get(pkg, pkg.replace("-", "_"))
+                        if importlib.util.find_spec(mod) is not None:
+                            return "0.0.0"
+                        raise
+
+                _im.version = _frozen_version
+                _im._frozen_patched = True
 
         from paddleocr import PaddleOCR
 
