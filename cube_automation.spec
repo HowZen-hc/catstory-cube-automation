@@ -108,7 +108,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,  # debug: revert to False before merging to main
     icon=None,  # 可替換為 .ico 檔案路徑
 )
 
