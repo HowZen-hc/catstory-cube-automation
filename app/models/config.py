@@ -3,9 +3,9 @@ import logging
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from app.paths import CONFIG_PATH
 
-CONFIG_PATH = Path("config.json")
+logger = logging.getLogger(__name__)
 
 
 @dataclass

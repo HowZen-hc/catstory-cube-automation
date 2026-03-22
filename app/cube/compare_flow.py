@@ -3,7 +3,6 @@ import time
 
 from app.core.condition import get_num_lines, parse_potential_lines
 from app.core.ocr import get_scale_factor
-from app.core.ocr_logger import log_ocr_result, save_debug_image
 from app.cube.base import CubeStrategy
 from app.models.potential import PotentialLine, RollResult
 
@@ -63,7 +62,7 @@ class CompareFlowStrategy(CubeStrategy):
         t_ocr = time.perf_counter()
         num_lines = get_num_lines(self.config.cube_type)
         lines = parse_potential_lines(texts, num_rows=num_lines)
-        log_ocr_result(roll_number, texts, lines)
+        self.log_session.log_ocr_result(roll_number, texts, lines)
         logger.info(
             "#%05d 耗時: 截圖 %.0fms / OCR %.0fms",
             roll_number,
@@ -71,7 +70,7 @@ class CompareFlowStrategy(CubeStrategy):
             (t_ocr - t_cap) * 1000,
         )
         if not texts:
-            save_debug_image(roll_number, img)
+            self.log_session.save_debug_image(roll_number, img)
         return lines
 
     def _is_better(
