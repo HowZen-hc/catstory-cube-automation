@@ -60,7 +60,7 @@ class OCRLogSession:
             for old in imgs[:-5]:
                 old.unlink(missing_ok=True)
         except Exception:
-            logger.debug("無法儲存 debug 截圖", exc_info=True)
+            logger.warning("無法儲存 debug 截圖", exc_info=True)
 
     def log_ocr_result(
         self,
