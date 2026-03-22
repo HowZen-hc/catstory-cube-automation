@@ -7,11 +7,11 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from app.core.condition import ConditionChecker, get_num_lines, parse_potential_lines
 from app.core.mouse import MouseController, focus_game_window
 from app.core.ocr import create_ocr_engine, get_scale_factor
+from app.core.ocr_logger import OCRLogSession
 from app.core.screen import ScreenCapture
 from app.cube.compare_flow import CompareFlowStrategy
 from app.cube.simple_flow import SimpleFlowStrategy
 from app.models.config import AppConfig
-from app.core.ocr_logger import log_ocr_result
 from app.models.potential import RollResult
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,7 @@ class AutomationWorker(QThread):
             mouse = MouseController(delay_ms=self.config.delay_ms)
             mouse.bind_stop_flag(self._stop_event)
             checker = ConditionChecker(self.config)
+            log_session = OCRLogSession("automation", self.config.cube_type)
         except Exception as e:
             logger.exception("模組初始化失敗")
             self.error_occurred.emit(f"初始化失敗: {e}")
@@ -55,11 +56,11 @@ class AutomationWorker(QThread):
         # 根據方塊類型選擇策略
         if self.config.cube_type == "恢復附加方塊 (紅色)":
             strategy = CompareFlowStrategy(
-                self.config, screen, ocr, mouse, checker
+                self.config, screen, ocr, mouse, checker, log_session
             )
         else:
             strategy = SimpleFlowStrategy(
-                self.config, screen, ocr, mouse, checker
+                self.config, screen, ocr, mouse, checker, log_session
             )
 
         # 將遊戲視窗拉到前景
@@ -78,7 +79,7 @@ class AutomationWorker(QThread):
             t_ocr = time.perf_counter()
             num_lines = get_num_lines(self.config.cube_type)
             lines = parse_potential_lines(texts, num_rows=num_lines)
-            log_ocr_result(0, texts, lines)
+            log_session.log_ocr_result(0, texts, lines)
             logger.info(
                 "[初始潛能] 耗時: 截圖 %.0fms / OCR %.0fms",
                 (t_cap - t0) * 1000,

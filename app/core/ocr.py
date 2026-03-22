@@ -50,7 +50,11 @@ class PaddleOCREngine(OCREngine):
 
     def __init__(self, use_gpu: bool = False) -> None:
         import os
+
+        from app.paths import MODEL_DIR
+
         os.environ["FLAGS_use_mkldnn"] = "0"
+        os.environ["PADDLEOCR_HOME"] = str(MODEL_DIR)
 
         from paddleocr import PaddleOCR
 

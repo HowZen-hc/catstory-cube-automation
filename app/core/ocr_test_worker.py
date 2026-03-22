@@ -6,7 +6,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.condition import ConditionChecker, get_num_lines, parse_potential_lines
 from app.core.ocr import create_ocr_engine, get_scale_factor
-from app.core.ocr_logger import log_ocr_result, save_debug_image
+from app.core.ocr_logger import OCRLogSession
 from app.core.screen import ScreenCapture
 from app.models.config import AppConfig
 from app.models.potential import RollResult
@@ -39,6 +39,7 @@ class OCRTestWorker(QThread):
             screen = ScreenCapture()
             ocr = create_ocr_engine(use_gpu=self.config.use_gpu)
             checker = ConditionChecker(self.config)
+            log_session = OCRLogSession("ocr_test", self.config.cube_type)
         except Exception as e:
             logger.exception("OCR 測試模式初始化失敗")
             self.error_occurred.emit(f"初始化失敗: {e}")
@@ -60,8 +61,8 @@ class OCRTestWorker(QThread):
                 t_ocr = time.perf_counter()
                 num_lines = get_num_lines(self.config.cube_type)
                 lines = parse_potential_lines(texts, num_rows=num_lines)
-                save_debug_image(count, pot_img)
-                log_ocr_result(count, texts, lines)
+                log_session.save_debug_image(count, pot_img)
+                log_session.log_ocr_result(count, texts, lines)
                 logger.info(
                     "OCR 測試 #%05d 耗時: 截圖 %.0fms / OCR %.0fms",
                     count,
