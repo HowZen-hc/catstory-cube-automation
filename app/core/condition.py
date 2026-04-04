@@ -105,10 +105,21 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("最終喜", "最終傷害"),
     # 攻擊誤讀
     ("攻事", "攻擊"),
+    # 屬性誤讀（屬 → 屋/國/慶）
+    ("全屋性", "全屬性"),
+    ("全國性", "全屬性"),
+    ("全慶性", "全屬性"),
 ]
 
-
+# MaxHP/MaxMP 誤讀（M 被吃掉，axHP → MaxHP），前方不能有字母以避免誤改正確的 MaxHP
+_OCR_AX_TO_MAX = re.compile(r"(?<![A-Za-z])ax(HP|MP)")
+# INT 誤讀（I↔1 混淆 + N↔T 混淆），前方不能有字母數字以避免誤匹配
+_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:1NT|1IT|1TT|IIT|IT)(?=[\+\d])")
 _OCR_DIGIT_FIXES = re.compile(r"(?<=[+\-])B(?=%)")
+# OCR 有時在 % 後多讀到下一碎片的殘留數字（如 +6%6 → +6%）
+_TRAILING_AFTER_PERCENT = re.compile(r"(%)\d+$")
+# % 被 OCR 誤讀為 9（如 +79 → +7%），僅在文字中無 % 時套用
+_PERCENT_AS_NINE = re.compile(r"(\d)9$")
 
 
 def _fix_ocr_text(text: str) -> str:
@@ -117,15 +128,19 @@ def _fix_ocr_text(text: str) -> str:
     text = text.replace(" ", "")
     for wrong, correct in _OCR_FIXES:
         text = text.replace(wrong, correct)
+    # axHP → MaxHP, axMP → MaxMP（前方無字母時）
+    text = _OCR_AX_TO_MAX.sub(r"Max\1", text)
+    # INT 誤讀修正（IT/1NT/1IT/1TT/IIT → INT）
+    text = _OCR_INT_FIXES.sub("INT", text)
     # 數值位置的 B → 8（如 +B% → +8%）
     text = _OCR_DIGIT_FIXES.sub("8", text)
+    # 移除 % 後多餘的數字（如 +6%6 → +6%）
+    text = _TRAILING_AFTER_PERCENT.sub(r"\1", text)
     return text
 
 
-def parse_potential_line(text: str) -> PotentialLine:
-    """解析單段 OCR 文字為 PotentialLine。"""
-    fixed = _fix_ocr_text(text)
-    # 先檢查數值型屬性（含 % 的較精確）
+def _try_parse(fixed: str, text: str) -> PotentialLine | None:
+    """嘗試從修正後文字解析屬性，成功回傳 PotentialLine，失敗回傳 None。"""
     for attr_name, pattern in ATTRIBUTE_PATTERNS.items():
         match = pattern.search(fixed)
         if match:
@@ -134,10 +149,25 @@ def parse_potential_line(text: str) -> PotentialLine:
                 value=int(match.group(1)),
                 raw_text=text,
             )
-    # 再檢查純文字屬性（無數值，作為 fallback）
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
         if pattern.search(fixed):
             return PotentialLine(attribute=attr_name, value=0, raw_text=text)
+    return None
+
+
+def parse_potential_line(text: str) -> PotentialLine:
+    """解析單段 OCR 文字為 PotentialLine。"""
+    fixed = _fix_ocr_text(text)
+    result = _try_parse(fixed, text)
+    if result is not None:
+        return result
+    # Fallback: % 可能被 OCR 誤讀為 9（如 +79 → +7%），僅在無 % 且首次解析失敗時嘗試
+    if "%" not in fixed:
+        retried = _PERCENT_AS_NINE.sub(r"\1%", fixed)
+        if retried != fixed:
+            result = _try_parse(retried, text)
+            if result is not None:
+                return result
     return PotentialLine(attribute="未知", value=0, raw_text=text)
 
 
@@ -165,6 +195,14 @@ def _parse_merged_text(merged: str) -> PotentialLine:
     for attr_name, pattern in TEXT_ATTRIBUTE_PATTERNS.items():
         if pattern.search(merged):
             return PotentialLine(attribute=attr_name, value=0, raw_text=merged)
+
+    # Fallback: % 可能被 OCR 誤讀為 9，僅在無 % 且首次解析失敗時嘗試
+    if "%" not in merged:
+        retried = _PERCENT_AS_NINE.sub(r"\1%", merged)
+        if retried != merged:
+            result = _try_parse(retried, merged)
+            if result is not None:
+                return result
 
     return PotentialLine(attribute="未知", value=0, raw_text=merged)
 
