@@ -111,6 +111,107 @@ class TestParsePotentialLine:
         assert line.attribute == "物理攻擊力%"
         assert line.value == 13
 
+    def test_ocr_fix_all_stats_wu(self):
+        """全屋性 → 全屬性 自動修正"""
+        line = parse_potential_line("全屋性 +5%")
+        assert line.attribute == "全屬性%"
+        assert line.value == 5
+
+    def test_ocr_fix_trailing_digit_after_percent(self):
+        """+6%6 → +6% 自動修正（OCR 殘留碎片）"""
+        line = parse_potential_line("LUK+6%6")
+        assert line.attribute == "LUK%"
+        assert line.value == 6
+
+    def test_ocr_fix_trailing_digit_str(self):
+        """+6%6 on STR"""
+        line = parse_potential_line("STR +6%6")
+        assert line.attribute == "STR%"
+        assert line.value == 6
+
+    def test_ocr_fix_int_as_it(self):
+        """IT+ → INT+ 自動修正"""
+        line = parse_potential_line("IT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_it_no_false_positive_on_crit(self):
+        """CRIT+3% 不應被誤改為 CRINT+3%（確認不會被誤判為 INT%）"""
+        line = parse_potential_line("CRIT+3%")
+        assert line.attribute != "INT%"
+
+    def test_ocr_fix_trailing_multi_digit_after_percent(self):
+        """+5%12 → +5% 多位數殘留"""
+        line = parse_potential_line("DEX+5%12")
+        assert line.attribute == "DEX%"
+        assert line.value == 5
+
+    def test_ocr_fix_all_stats_guo(self):
+        """全國性 → 全屬性 自動修正"""
+        line = parse_potential_line("全國性+6%")
+        assert line.attribute == "全屬性%"
+        assert line.value == 6
+
+    def test_ocr_fix_all_stats_qing(self):
+        """全慶性 → 全屬性 自動修正"""
+        line = parse_potential_line("全慶性+5%")
+        assert line.attribute == "全屬性%"
+        assert line.value == 5
+
+    def test_ocr_fix_int_as_1nt(self):
+        """1NT → INT（I↔1 混淆）"""
+        line = parse_potential_line("1NT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_int_as_1it(self):
+        """1IT → INT"""
+        line = parse_potential_line("1IT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_int_as_1tt(self):
+        """1TT → INT"""
+        line = parse_potential_line("1TT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_int_as_iit(self):
+        """IIT → INT"""
+        line = parse_potential_line("IIT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_maxhp_ax(self):
+        """axHP → MaxHP 自動修正"""
+        line = parse_potential_line("axHP +121")
+        assert line.attribute == "MaxHP"
+        assert line.value == 121
+
+    def test_ocr_fix_percent_as_nine(self):
+        """全屬性+79 → 全屬性+7%（% 被誤讀為 9）"""
+        line = parse_potential_line("全属性+79")
+        assert line.attribute == "全屬性%"
+        assert line.value == 7
+
+    def test_ocr_fix_percent_as_nine_not_applied_when_percent_exists(self):
+        """已有 % 時不套用 9→% 修正"""
+        line = parse_potential_line("STR+9%")
+        assert line.attribute == "STR%"
+        assert line.value == 9
+
+    def test_ocr_fix_percent_as_nine_no_false_positive_flat_str(self):
+        """STR+19 是合法平值，不應被誤改為 STR+1%"""
+        line = parse_potential_line("STR+19")
+        assert line.attribute == "STR"
+        assert line.value == 19
+
+    def test_ocr_fix_percent_as_nine_no_false_positive_flat_maxhp(self):
+        """MaxHP+219 是合法平值，不應被誤改為 MaxHP+21%"""
+        line = parse_potential_line("MaxHP+219")
+        assert line.attribute == "MaxHP"
+        assert line.value == 219
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""
