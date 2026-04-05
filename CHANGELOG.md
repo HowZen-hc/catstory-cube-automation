@@ -6,20 +6,36 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-05
+
 ### Added
 
+- feat: delay range hint and animation warning in settings panel
+- feat: save debug screenshots (raw + processed) on every roll, keep last 10
+- feat: release-notes skill for generating user-facing release notes
 - CI: dev branch auto-build workflow (artifact only, no Release)
+- CI: remove auto-generated release notes for manual editing
+- docs: CHANGELOG
 - docs: OCR bugfix log (`docs/ocr-bugfix-log.md`)
 - docs: OCR matching feasibility study (`docs/features/ocr-matching/0-feasibility-study.md`)
 
 ### Fixed
 
+- fix: worker not stopping after target condition reached (missing stop() call)
+- fix: compound damage attributes misidentified when whitespace between characters
+- fix: strip all Unicode whitespace in OCR preprocessing (not just ASCII spaces)
 - OCR: attribute misreads (全屋性/全國性/全慶性 → 全屬性)
 - OCR: INT character confusion (1NT/1IT/1TT/IIT/IT → INT, with boundary guard)
 - OCR: trailing digits after % (+6%6 → +6%)
 - OCR: percent misread as 9 (+79 → +7%, fallback only when normal parse fails)
 - OCR: MaxHP/MaxMP prefix misread (axHP → MaxHP)
 - OCR: debug image save log level (debug → warning)
+
+### Changed
+
+- delay defaults: 1500ms default, 1200-3000ms range (was 1000ms, 500-2000ms)
+- delay resets to default on every app launch
+- delay input auto-corrects to nearest valid value
 
 ## [0.2.0] - 2026-03-24
 
