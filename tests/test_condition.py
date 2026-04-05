@@ -212,6 +212,47 @@ class TestParsePotentialLine:
         assert line.attribute == "MaxHP"
         assert line.value == 219
 
+    def test_crit_damage_with_space(self):
+        """爆擊 傷害（中間有空格）應辨識為爆擊傷害，非傷害"""
+        line = parse_potential_line("爆擊 傷害 +8%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 8
+
+    def test_crit_damage_no_space(self):
+        """爆擊傷害（無空格）正常辨識"""
+        line = parse_potential_line("爆擊傷害 +8%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 8
+
+    def test_crit_damage_not_misread_as_damage(self):
+        """爆擊傷害不應被誤判為傷害"""
+        line = parse_potential_line("爆擊 傷害+8%")
+        assert line.attribute != "傷害%"
+
+    def test_final_damage_with_space(self):
+        """最終 傷害（中間有空格）應辨識為最終傷害，非傷害"""
+        line = parse_potential_line("最終 傷害 +20%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 20
+
+    def test_crit_damage_fullwidth_space(self):
+        """爆擊\u3000傷害（全形空格）應辨識為爆擊傷害"""
+        line = parse_potential_line("爆擊\u3000傷害 +8%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 8
+
+    def test_final_damage_fullwidth_space(self):
+        """最終\u3000傷害（全形空格）應辨識為最終傷害，非傷害"""
+        line = parse_potential_line("最終\u3000傷害 +20%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 20
+
+    def test_boss_damage_fullwidth_space(self):
+        """Boss怪物攻擊時\u3000傷害（全形空格）應辨識為Boss傷害"""
+        line = parse_potential_line("Boss怪物攻擊時\u3000傷害 +40%")
+        assert line.attribute == "Boss傷害%"
+        assert line.value == 40
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""

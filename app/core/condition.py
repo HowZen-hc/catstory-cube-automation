@@ -16,13 +16,13 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "爆擊傷害%": re.compile(r"爆[擊擎]傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "爆擊傷害%": re.compile(r"爆[擊擎]\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力率]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "傷害%": re.compile(r"(?<![擊擎時終])傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "HP恢復效率%": re.compile(r"HP恢復道具及恢復技能效率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "MP消耗%": re.compile(r"所有技能的?MP消耗\s*[:\uff1a]?\s*-?\s*(\d+) ?%"),
@@ -44,7 +44,7 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     # 技能冷卻時間（帽子用，非 %）
     "技能冷卻時間": re.compile(r"技能冷卻時間\s*-?\s*(\d+)\s*秒"),
     # 萌獸屬性
-    "最終傷害%": re.compile(r"最終傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "最終傷害%": re.compile(r"最終\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "加持技能持續時間%": re.compile(r"加持技能持續時間\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
 }
 
@@ -124,8 +124,8 @@ _PERCENT_AS_NINE = re.compile(r"(\d)9$")
 
 def _fix_ocr_text(text: str) -> str:
     """修正 OCR 常見誤讀字元。"""
-    # 移除 OCR 產生的多餘空格（如「魔 法攻擊力」→「魔法攻擊力」）
-    text = text.replace(" ", "")
+    # 移除 OCR 產生的多餘空白（含全形空格 \u3000、tab 等 Unicode 空白）
+    text = re.sub(r"\s", "", text)
     for wrong, correct in _OCR_FIXES:
         text = text.replace(wrong, correct)
     # axHP → MaxHP, axMP → MaxMP（前方無字母時）
