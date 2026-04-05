@@ -98,6 +98,5 @@ class SettingsPanel(QGroupBox):
         self.delay_spin.setValue(config.delay_ms)
 
     def load_persistent_from_config(self, config: AppConfig) -> None:
-        """只載入持久性設定（延遲、GPU），下拉選單保持 UI 預設值。"""
-        self.delay_spin.setValue(config.delay_ms)
+        """只載入持久性設定（GPU），下拉選單和延遲保持 UI 預設值。"""
         self.gpu_checkbox.setChecked(config.use_gpu)
