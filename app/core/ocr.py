@@ -39,6 +39,9 @@ def preprocess_for_ocr(image: np.ndarray, scale_factor: float = _SCALE_FACTOR) -
 class OCREngine(ABC):
     """OCR 引擎抽象基類。"""
 
+    last_processed: np.ndarray | None = None
+    """最近一次 recognize 使用的預處理圖片，供 debug 儲存用。"""
+
     @abstractmethod
     def recognize(self, image: np.ndarray, scale_factor: float = _SCALE_FACTOR) -> list[tuple[str, float]]:
         """對圖片進行 OCR，回傳 (文字, y 中心點) 列表。"""
@@ -118,6 +121,7 @@ class PaddleOCREngine(OCREngine):
 
     def recognize(self, image: np.ndarray, scale_factor: float = _SCALE_FACTOR) -> list[tuple[str, float]]:
         processed = preprocess_for_ocr(image, scale_factor=scale_factor)
+        self.last_processed = processed
         result = self._ocr.predict(processed)
         if not result:
             return []
