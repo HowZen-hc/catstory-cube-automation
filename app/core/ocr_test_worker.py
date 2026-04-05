@@ -61,7 +61,7 @@ class OCRTestWorker(QThread):
                 t_ocr = time.perf_counter()
                 num_lines = get_num_lines(self.config.cube_type)
                 lines = parse_potential_lines(texts, num_rows=num_lines)
-                log_session.save_debug_image(count, pot_img)
+                log_session.save_debug_image(count, pot_img, ocr.last_processed)
                 log_session.log_ocr_result(count, texts, lines)
                 logger.info(
                     "OCR 測試 #%05d 耗時: 截圖 %.0fms / OCR %.0fms",

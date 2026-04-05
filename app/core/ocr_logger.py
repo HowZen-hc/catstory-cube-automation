@@ -45,22 +45,41 @@ class OCRLogSession:
     def log_file(self) -> Path:
         return self._log_file
 
-    def save_debug_image(self, roll_number: int, image: np.ndarray) -> None:
-        """儲存 OCR 截圖供除錯用（僅保留最近 5 張）。"""
+    def save_debug_image(
+        self,
+        roll_number: int,
+        raw_image: np.ndarray,
+        processed_image: np.ndarray | None = None,
+    ) -> None:
+        """儲存 OCR 截圖供除錯用（僅保留最近 10 組）。
+
+        每組包含原始截圖 + 預處理後的圖（供 OCR 的輸入）。
+        """
+        _MAX_KEEP = 10
         try:
             import cv2
 
             DEBUG_IMG_DIR.mkdir(parents=True, exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            path = DEBUG_IMG_DIR / f"ocr_{timestamp}_{roll_number:05d}.png"
-            cv2.imwrite(str(path), image)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            prefix = f"ocr_{timestamp}_{roll_number:05d}"
+            cv2.imwrite(str(DEBUG_IMG_DIR / f"{prefix}_raw.png"), raw_image)
+            if processed_image is not None:
+                cv2.imwrite(str(DEBUG_IMG_DIR / f"{prefix}_proc.png"), processed_image)
 
-            # 只保留最近 5 張
-            imgs = sorted(DEBUG_IMG_DIR.glob("ocr_*.png"))
-            for old in imgs[:-5]:
-                old.unlink(missing_ok=True)
+            # 只保留最近 N 組（按 raw 檔計數）
+            raws = sorted(DEBUG_IMG_DIR.glob("ocr_*_raw.png"))
+            for old_raw in raws[:-_MAX_KEEP]:
+                old_raw.unlink(missing_ok=True)
+                old_proc = old_raw.with_name(
+                    old_raw.name.replace("_raw.png", "_proc.png")
+                )
+                old_proc.unlink(missing_ok=True)
+            # 清理舊格式（無 _raw/_proc 後綴）的遺留檔案
+            for legacy in DEBUG_IMG_DIR.glob("ocr_*.png"):
+                if "_raw.png" not in legacy.name and "_proc.png" not in legacy.name:
+                    legacy.unlink(missing_ok=True)
         except Exception:
-            logger.debug("無法儲存 debug 截圖", exc_info=True)
+            logger.warning("無法儲存 debug 截圖", exc_info=True)
 
     def log_ocr_result(
         self,

@@ -69,8 +69,7 @@ class CompareFlowStrategy(CubeStrategy):
             (t_cap - t0) * 1000,
             (t_ocr - t_cap) * 1000,
         )
-        if not texts:
-            self.log_session.save_debug_image(roll_number, img)
+        self.log_session.save_debug_image(roll_number, img, self.ocr.last_processed)
         return lines
 
     def _is_better(

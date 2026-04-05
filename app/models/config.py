@@ -42,7 +42,7 @@ class AppConfig:
     target_attribute: str = "STR"
     is_eternal: bool = True  # 手套/帽子是否為永恆裝備
     potential_region: Region = field(default_factory=Region)
-    delay_ms: int = 1000
+    delay_ms: int = 1500
     ocr_engine: str = "paddle"
     use_gpu: bool = False
     use_preset: bool = True
@@ -101,7 +101,7 @@ class AppConfig:
                 target_attribute=data.get("target_attribute", "STR"),
                 is_eternal=is_eternal,
                 potential_region=Region(**data.get("potential_region", {})),
-                delay_ms=data.get("delay_ms", 1000),
+                delay_ms=data.get("delay_ms", 1500),
                 ocr_engine=data.get("ocr_engine", "paddle"),
                 use_gpu=data.get("use_gpu", False),
                 use_preset=data.get("use_preset", True),
