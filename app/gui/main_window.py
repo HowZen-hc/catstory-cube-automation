@@ -198,6 +198,8 @@ class MainWindow(QMainWindow):
         self.status_bar.showMessage(msg)
 
     def _on_target_reached(self, roll_count: int) -> None:
+        if self._worker:
+            self._worker.stop()
         QApplication.beep()
         QMessageBox.information(self, "達成目標", f"達成目標！共洗 {roll_count} 次")
 
