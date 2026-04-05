@@ -1,5 +1,6 @@
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
+    QAbstractSpinBox,
     QCheckBox,
     QComboBox,
     QGroupBox,
@@ -58,12 +59,21 @@ class SettingsPanel(QGroupBox):
         self.delay_spin = QSpinBox()
         self.delay_spin.setMinimumWidth(120)
         self.delay_spin.setRange(1200, 3000)
+        self.delay_spin.setCorrectionMode(QAbstractSpinBox.CorrectionMode.CorrectToNearestValue)
         self.delay_spin.setValue(1500)
         self.delay_spin.setSingleStep(100)
         self.delay_spin.setToolTip("每次洗方塊後等待畫面更新的時間，太低可能截到舊畫面")
         row3.addWidget(self.delay_spin)
+        delay_hint = QLabel("範圍 1200~3000ms，辨識不穩定時可適當調高")
+        delay_hint.setStyleSheet("color: gray; font-size: 12px;")
+        row3.addWidget(delay_hint)
         row3.addStretch()
         layout.addLayout(row3)
+
+        # 提醒：關閉強化動畫
+        anim_hint = QLabel("⚠ 請在遊戲內關閉「強化動畫」，以免影響辨識結果")
+        anim_hint.setStyleSheet("color: #e65100; font-size: 12px;")
+        layout.addWidget(anim_hint)
 
         # GPU 加速
         row4 = QHBoxLayout()
