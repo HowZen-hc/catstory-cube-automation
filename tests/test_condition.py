@@ -253,6 +253,86 @@ class TestParsePotentialLine:
         assert line.attribute == "Boss傷害%"
         assert line.value == 40
 
+    # --- 20260406 log 新增 OCR 修正 ---
+
+    def test_ocr_fix_crit_damage_baohua(self):
+        """爆華傷害 → 爆擊傷害"""
+        line = parse_potential_line("爆華傷害+1%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 1
+
+    def test_ocr_fix_crit_damage_baohua_pei(self):
+        """爆華佩害 → 爆擊傷害（爆華+佩害 雙重誤讀）"""
+        line = parse_potential_line("爆華佩害 +3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_crit_damage_yang(self):
+        """煬擊傷害 → 爆擊傷害（爆→煬）"""
+        line = parse_potential_line("煬擊傷害+3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_luk_as_lik(self):
+        """LIK → LUK"""
+        line = parse_potential_line("LIK+9%")
+        assert line.attribute == "LUK%"
+        assert line.value == 9
+
+    def test_ocr_fix_dex_as_dik(self):
+        """DIK → DEX"""
+        line = parse_potential_line("DIK+9%")
+        assert line.attribute == "DEX%"
+        assert line.value == 9
+
+    def test_ocr_fix_you_hai(self):
+        """優害 → 傷害"""
+        line = parse_potential_line("最終優害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_xin_hai(self):
+        """信害 → 傷害"""
+        line = parse_potential_line("最終信害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_shang_xi(self):
+        """傷喜 → 傷害（害→喜）"""
+        line = parse_potential_line("最終傷喜：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_ji_xi(self):
+        """集喜 → 傷害（傷害→集喜 雙字誤讀）"""
+        line = parse_potential_line("最終集喜：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_final_damage_missing_shang(self):
+        """最終害 → 最終傷害（傷 被吃掉）"""
+        line = parse_potential_line("最終害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_wushi_simplified(self):
+        """無视 → 無視（簡體 视）"""
+        line = parse_potential_line("無视怪物防禦率：+50%")
+        assert line.attribute == "無視怪物防禦%"
+        assert line.value == 50
+
+    def test_ocr_fix_int_as_im(self):
+        """IM → INT（M↔N 誤讀）"""
+        line = parse_potential_line("以角色等級為準每9級IM+2")
+        assert line.attribute == "每級INT"
+        assert line.value == 2
+
+    def test_ocr_fix_hp_recovery_complex(self):
+        """H恢递具及恢覆技能效率 → HP恢復道具及恢復技能效率"""
+        line = parse_potential_line("H恢递具及恢覆技能效率+30%")
+        assert line.attribute == "HP恢復效率%"
+        assert line.value == 30
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""
@@ -276,7 +356,7 @@ class TestParsePotentialLines:
         """OCR 把 'STR +9%' 拆成 ['STR', '+9%']，同一行"""
         lines = parse_potential_lines(self._same_row(["STR", "+9%"]))
         # 同一行合併後只有一個屬性，其餘行為「未知」
-        known = [l for l in lines if l.attribute != "未知"]
+        known = [ln for ln in lines if ln.attribute != "未知"]
         assert len(known) == 1
         assert known[0].attribute == "STR%"
         assert known[0].value == 9
@@ -286,7 +366,7 @@ class TestParsePotentialLines:
         frags = [("STR", 10.0), ("+9%", 10.5), ("DEX+7%", 30.0), ("LUK +6%", 50.0)]
         lines = parse_potential_lines(frags)
         assert len(lines) == 3
-        attrs = {l.attribute for l in lines}
+        attrs = {ln.attribute for ln in lines}
         assert "STR%" in attrs
         assert "DEX%" in attrs
         assert "LUK%" in attrs
@@ -294,7 +374,7 @@ class TestParsePotentialLines:
     def test_japanese_kanji_fix(self):
         """攻撃 → 攻擊 修正後能解析"""
         lines = parse_potential_lines(self._same_row(["物理攻撃力", "+13%"]))
-        known = [l for l in lines if l.attribute != "未知"]
+        known = [ln for ln in lines if ln.attribute != "未知"]
         assert len(known) == 1
         assert known[0].attribute == "物理攻擊力%"
         assert known[0].value == 13
@@ -303,7 +383,7 @@ class TestParsePotentialLines:
         """簡體字修正：最终→最終, 全国性→全屬性"""
         frags = [("全国性：+7%", 10.0), ("最终傷害：+20%", 30.0)]
         lines = parse_potential_lines(frags)
-        known = [l for l in lines if l.attribute != "未知"]
+        known = [ln for ln in lines if ln.attribute != "未知"]
         assert len(known) == 2
         assert known[0].attribute == "全屬性%"
         assert known[0].value == 7
@@ -314,7 +394,7 @@ class TestParsePotentialLines:
         """結果應按 y 座標排序（物理位置），而非 ATTRIBUTE_PATTERNS 順序"""
         frags = [("最終傷害：+20%", 10.0), ("STR：+9%", 30.0)]
         lines = parse_potential_lines(frags)
-        known = [l for l in lines if l.attribute != "未知"]
+        known = [ln for ln in lines if ln.attribute != "未知"]
         assert len(known) == 2
         assert known[0].attribute == "最終傷害%"
         assert known[1].attribute == "STR%"
@@ -323,21 +403,21 @@ class TestParsePotentialLines:
         """'DEX +18' 不應因隔壁碎片的 '%' 被誤判為 DEX +18%"""
         frags = self._three_rows("MaxMP+300", "DEX +18", "%9+INI")
         lines = parse_potential_lines(frags)
-        attrs = [l.attribute for l in lines]
+        attrs = [ln.attribute for ln in lines]
         assert "DEX%" not in attrs
 
     def test_cross_fragment_percent_second_case(self):
         """'STR +18' 不應因隔壁碎片的 '%' 被誤判為 STR +18%"""
         frags = [("STR +18", 10.0), ("STR +18", 10.5), ("%9+", 30.0), ("XEI", 50.0)]
         lines = parse_potential_lines(frags)
-        attrs = [l.attribute for l in lines]
+        attrs = [ln.attribute for ln in lines]
         assert "STR%" not in attrs
 
     def test_pet_cube_ocr_misread(self):
         """實際萌獸方塊 OCR 結果（含簡繁混雜）"""
         frags = [("全国性：+20", 10.0), ("DEX", 10.5), ("最终傷害：+20%", 30.0), ("：+14%", 50.0)]
         lines = parse_potential_lines(frags)
-        attrs = [l.attribute for l in lines]
+        attrs = [ln.attribute for ln in lines]
         assert "最終傷害%" in attrs
 
     def test_always_returns_3_lines(self):
@@ -349,7 +429,7 @@ class TestParsePotentialLines:
         """空輸入回傳 3 個未知"""
         lines = parse_potential_lines([])
         assert len(lines) == 3
-        assert all(l.attribute == "未知" for l in lines)
+        assert all(ln.attribute == "未知" for ln in lines)
 
     def test_ocr_skip_row_stability(self):
         """OCR 漏讀中間行時，第1排和第3排不受影響"""

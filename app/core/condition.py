@@ -16,11 +16,12 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "爆擊傷害%": re.compile(r"爆[擊擎]\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "爆擊傷害%": re.compile(r"爆.\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力率]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    # 必須在 爆擊傷害% 之後，避免 爆X傷害 被誤判為傷害
     "傷害%": re.compile(r"(?<![擊擎時終])傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -96,25 +97,43 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("恢覆", "恢復"),
     ("MaxMOP", "MaxMP"),
     ("MaxCP", "MaxMP"),
-    # 傷害誤讀（傷 → 低/值/佩/集）
+    # 傷害誤讀（傷 → 低/值/佩/集/優/信）
     ("低害", "傷害"),
     ("值害", "傷害"),
     ("佩害", "傷害"),
     ("集害", "傷害"),
-    # 傷害兩字被讀成一個字（最終喜 → 最終傷害）
+    ("優害", "傷害"),
+    ("信害", "傷害"),
+    # 害 → 喜 誤讀
+    ("傷喜", "傷害"),
+    ("集喜", "傷害"),
+    # 傷害兩字被讀成一個字（最終喜/最終害 → 最終傷害）
     ("最終喜", "最終傷害"),
+    ("最終害", "最終傷害"),
     # 攻擊誤讀
     ("攻事", "攻擊"),
+    # 爆擊誤讀（爆 → 爆華/煬）
+    ("爆華", "爆擊"),
+    ("煬擊", "爆擊"),
+    # LUK/DEX 誤讀
+    ("LIK", "LUK"),
+    ("DIK", "DEX"),
     # 屬性誤讀（屬 → 屋/國/慶）
     ("全屋性", "全屬性"),
     ("全國性", "全屬性"),
     ("全慶性", "全屬性"),
+    # 簡體 → 繁體（視）
+    ("無视", "無視"),
+    # HP恢復道具誤讀（恢递具 → 恢復道具，H → HP）
+    # 注意：H恢復道具 依賴上一行先將 恢递具 → 恢復道具，順序不可對調
+    ("恢递具", "恢復道具"),
+    ("H恢復道具", "HP恢復道具"),
 ]
 
 # MaxHP/MaxMP 誤讀（M 被吃掉，axHP → MaxHP），前方不能有字母以避免誤改正確的 MaxHP
 _OCR_AX_TO_MAX = re.compile(r"(?<![A-Za-z])ax(HP|MP)")
-# INT 誤讀（I↔1 混淆 + N↔T 混淆），前方不能有字母數字以避免誤匹配
-_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:1NT|1IT|1TT|IIT|IT)(?=[\+\d])")
+# INT 誤讀（I↔1 混淆 + N↔T/M 混淆），前方不能有字母數字以避免誤匹配
+_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:1NT|1IT|1TT|IIT|IT|IM)(?=[\+\d])")
 _OCR_DIGIT_FIXES = re.compile(r"(?<=[+\-])B(?=%)")
 # OCR 有時在 % 後多讀到下一碎片的殘留數字（如 +6%6 → +6%）
 _TRAILING_AFTER_PERCENT = re.compile(r"(%)\d+$")
@@ -852,7 +871,7 @@ class ConditionChecker:
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
         """雙終被：2 行最終傷害 >= 20% + 1 行被動技能2。"""
         final_dmg_count = sum(
-            1 for l in lines if l.attribute == "最終傷害%" and l.value >= 20
+            1 for line in lines if line.attribute == "最終傷害%" and line.value >= 20
         )
-        passive2_count = sum(1 for l in lines if l.attribute == "被動技能2")
+        passive2_count = sum(1 for line in lines if line.attribute == "被動技能2")
         return final_dmg_count >= 2 and passive2_count >= 1
