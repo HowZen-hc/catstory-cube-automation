@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-06
+
+### Added
+
+- feat: display current version in window title bar
+- feat: manual "check for update" button in status bar (queries GitHub Releases API)
+- chore: add ruff linter as dev dependency
+
+### Fixed
+
+- fix: 13 new OCR misread corrections (crit damage, LIK/DIK, damage variants, HP recovery)
+- fix: broaden crit damage pattern to catch unknown OCR misreads
+- fix: debug screenshots not saving on Windows Unicode paths (cv2.imencode workaround)
+- style: fix ruff E741 ambiguous variable names across codebase
+
 ## [0.3.0] - 2026-04-05
 
 ### Added
