@@ -253,6 +253,86 @@ class TestParsePotentialLine:
         assert line.attribute == "Boss傷害%"
         assert line.value == 40
 
+    # --- 20260406 log 新增 OCR 修正 ---
+
+    def test_ocr_fix_crit_damage_baohua(self):
+        """爆華傷害 → 爆擊傷害"""
+        line = parse_potential_line("爆華傷害+1%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 1
+
+    def test_ocr_fix_crit_damage_baohua_pei(self):
+        """爆華佩害 → 爆擊傷害（爆華+佩害 雙重誤讀）"""
+        line = parse_potential_line("爆華佩害 +3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_crit_damage_yang(self):
+        """煬擊傷害 → 爆擊傷害（爆→煬）"""
+        line = parse_potential_line("煬擊傷害+3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_luk_as_lik(self):
+        """LIK → LUK"""
+        line = parse_potential_line("LIK+9%")
+        assert line.attribute == "LUK%"
+        assert line.value == 9
+
+    def test_ocr_fix_dex_as_dik(self):
+        """DIK → DEX"""
+        line = parse_potential_line("DIK+9%")
+        assert line.attribute == "DEX%"
+        assert line.value == 9
+
+    def test_ocr_fix_you_hai(self):
+        """優害 → 傷害"""
+        line = parse_potential_line("最終優害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_xin_hai(self):
+        """信害 → 傷害"""
+        line = parse_potential_line("最終信害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_shang_xi(self):
+        """傷喜 → 傷害（害→喜）"""
+        line = parse_potential_line("最終傷喜：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_ji_xi(self):
+        """集喜 → 傷害（傷害→集喜 雙字誤讀）"""
+        line = parse_potential_line("最終集喜：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_final_damage_missing_shang(self):
+        """最終害 → 最終傷害（傷 被吃掉）"""
+        line = parse_potential_line("最終害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_wushi_simplified(self):
+        """無视 → 無視（簡體 视）"""
+        line = parse_potential_line("無视怪物防禦率：+50%")
+        assert line.attribute == "無視怪物防禦%"
+        assert line.value == 50
+
+    def test_ocr_fix_int_as_im(self):
+        """IM → INT（M↔N 誤讀）"""
+        line = parse_potential_line("以角色等級為準每9級IM+2")
+        assert line.attribute == "每級INT"
+        assert line.value == 2
+
+    def test_ocr_fix_hp_recovery_complex(self):
+        """H恢递具及恢覆技能效率 → HP恢復道具及恢復技能效率"""
+        line = parse_potential_line("H恢递具及恢覆技能效率+30%")
+        assert line.attribute == "HP恢復效率%"
+        assert line.value == 30
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""
