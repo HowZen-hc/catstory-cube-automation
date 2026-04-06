@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 DEBUG_IMG_DIR = LOG_DIR / "debug"
 
 
+def _imwrite(path: Path, image: np.ndarray) -> None:
+    """cv2.imwrite 不支援 Windows Unicode 路徑，改用 imencode + write_bytes。"""
+    import cv2
+
+    ok, buf = cv2.imencode(".png", image)
+    if not ok:
+        raise RuntimeError(f"cv2.imencode failed: {path}")
+    path.write_bytes(buf.tobytes())
+
+
 def _sanitize_filename(name: str) -> str:
     """移除檔名中不合法的字元。"""
     return re.sub(r'[\\/*?:"<>|() ]', "", name)
@@ -57,14 +67,12 @@ class OCRLogSession:
         """
         _MAX_KEEP = 10
         try:
-            import cv2
-
             DEBUG_IMG_DIR.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             prefix = f"ocr_{timestamp}_{roll_number:05d}"
-            cv2.imwrite(str(DEBUG_IMG_DIR / f"{prefix}_raw.png"), raw_image)
+            _imwrite(DEBUG_IMG_DIR / f"{prefix}_raw.png", raw_image)
             if processed_image is not None:
-                cv2.imwrite(str(DEBUG_IMG_DIR / f"{prefix}_proc.png"), processed_image)
+                _imwrite(DEBUG_IMG_DIR / f"{prefix}_proc.png", processed_image)
 
             # 只保留最近 N 組（按 raw 檔計數）
             raws = sorted(DEBUG_IMG_DIR.glob("ocr_*_raw.png"))
