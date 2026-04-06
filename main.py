@@ -10,9 +10,9 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message="urllib3.*doesn't match a supported version")
 warnings.filterwarnings("ignore", message="No ccache found")
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication  # noqa: E402
 
-from app.gui.main_window import MainWindow
+from app.gui.main_window import MainWindow  # noqa: E402
 
 # 為 app namespace 設定獨立的 handler，不依賴 root logger（避免被 PaddleX 覆蓋）
 _handler = logging.StreamHandler(sys.stderr)
