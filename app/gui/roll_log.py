@@ -45,7 +45,7 @@ class RollLog(QGroupBox):
         header_cols = ",".join(f"line{i+1}" for i in range(max_cols))
         lines = [f"roll_number,matched,{header_cols}"]
         for r in self._results:
-            potentials = [l.raw_text for l in r.lines]
+            potentials = [ln.raw_text for ln in r.lines]
             while len(potentials) < max_cols:
                 potentials.append("")
             quoted = ",".join(f'"{p}"' for p in potentials)

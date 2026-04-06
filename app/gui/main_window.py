@@ -1,6 +1,7 @@
 import logging
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QThread, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -21,8 +22,23 @@ from app.gui.roll_log import RollLog
 from app.gui.settings_panel import SettingsPanel
 from app.models.config import AppConfig, Region
 from app.models.potential import RollResult
+from app.version import RELEASE_PAGE_URL, __version__, check_for_update
 
 logger = logging.getLogger(__name__)
+
+
+class _UpdateCheckWorker(QThread):
+    """非阻塞的版本檢查 worker。"""
+
+    result_ready = pyqtSignal(bool, str)  # has_update, latest_version
+    error_occurred = pyqtSignal(str)
+
+    def run(self) -> None:
+        try:
+            has_update, latest = check_for_update()
+            self.result_ready.emit(has_update, latest)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
 
 
 class MainWindow(QMainWindow):
@@ -38,7 +54,7 @@ class MainWindow(QMainWindow):
         self._ui_loaded = True
 
     def _init_ui(self) -> None:
-        self.setWindowTitle("新楓之谷自動洗方塊")
+        self.setWindowTitle(f"新楓之谷自動洗方塊 v{__version__}")
         self.setMinimumSize(500, 750)
 
         central = QWidget()
@@ -96,6 +112,14 @@ class MainWindow(QMainWindow):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("就緒")
+
+        # 檢查更新按鈕（狀態列右側）
+        self._update_worker: _UpdateCheckWorker | None = None
+        self.btn_check_update = QPushButton(f"v{__version__} — 檢查更新")
+        self.btn_check_update.setFlat(True)
+        self.btn_check_update.setStyleSheet("color: #666; padding: 0 8px;")
+        self.btn_check_update.clicked.connect(self._on_check_update)
+        self.status_bar.addPermanentWidget(self.btn_check_update)
 
     def _on_select_potential_region(self) -> None:
         self._region_selector = RegionSelector()
@@ -241,6 +265,44 @@ class MainWindow(QMainWindow):
             self.btn_start.setText("▶ 開始")
             self.btn_start.setStyleSheet("")
 
+    # ── 版本檢查 ──
+
+    def _on_check_update(self) -> None:
+        if self._update_worker and self._update_worker.isRunning():
+            return
+        self.btn_check_update.setEnabled(False)
+        self.btn_check_update.setText("檢查中...")
+        self._update_worker = _UpdateCheckWorker()
+        self._update_worker.result_ready.connect(self._on_update_result)
+        self._update_worker.error_occurred.connect(self._on_update_error)
+        self._update_worker.finished.connect(self._update_worker.deleteLater)
+        self._update_worker.finished.connect(self._on_update_finished)
+        self._update_worker.start()
+
+    def _on_update_result(self, has_update: bool, latest: str) -> None:
+        self.btn_check_update.setEnabled(True)
+        self.btn_check_update.setText(f"v{__version__} — 檢查更新")
+        if has_update:
+            reply = QMessageBox.question(
+                self,
+                "有新版本",
+                f"發現新版本 v{latest}（目前 v{__version__}）\n\n是否前往下載頁面？",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                QDesktopServices.openUrl(QUrl(RELEASE_PAGE_URL))
+        else:
+            QMessageBox.information(self, "版本檢查", f"目前已是最新版本 v{__version__}")
+
+    def _on_update_finished(self) -> None:
+        self._update_worker = None
+
+    def _on_update_error(self, msg: str) -> None:
+        self.btn_check_update.setEnabled(True)
+        self.btn_check_update.setText(f"v{__version__} — 檢查更新")
+        logger.warning("版本檢查失敗: %s", msg)
+        QMessageBox.warning(self, "版本檢查", "版本檢查失敗，請稍後再試。")
+
     def closeEvent(self, event) -> None:
         self.settings_panel.apply_to_config(self.config)
         self.condition_editor.apply_to_config(self.config)
@@ -248,4 +310,7 @@ class MainWindow(QMainWindow):
         if self._worker and self._worker.isRunning():
             self._worker.stop()
             self._worker.wait(3000)
+        if self._update_worker and self._update_worker.isRunning():
+            self._update_worker.result_ready.disconnect()
+            self._update_worker.error_occurred.disconnect()
         super().closeEvent(event)

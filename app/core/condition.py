@@ -871,7 +871,7 @@ class ConditionChecker:
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:
         """雙終被：2 行最終傷害 >= 20% + 1 行被動技能2。"""
         final_dmg_count = sum(
-            1 for l in lines if l.attribute == "最終傷害%" and l.value >= 20
+            1 for line in lines if line.attribute == "最終傷害%" and line.value >= 20
         )
-        passive2_count = sum(1 for l in lines if l.attribute == "被動技能2")
+        passive2_count = sum(1 for line in lines if line.attribute == "被動技能2")
         return final_dmg_count >= 2 and passive2_count >= 1
