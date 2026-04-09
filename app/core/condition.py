@@ -560,6 +560,48 @@ def _check_line(
     return False
 
 
+def _run_preset_any_pos(
+    lines: list[PotentialLine],
+    num_lines: int,
+    target_key: str,
+    s_val: int,
+    r_val: int,
+    all_stats_min_s: int | None,
+    all_stats_min_r: int | None,
+    accept_crit3: bool,
+    accept_cooldown: bool,
+    tolerance: int,
+) -> bool:
+    """預設模式任意位置的純函式版本：嘗試所有排列找到一組符合的分配。
+
+    不讀取任何 ConditionChecker 實例狀態，所有輸入皆透過參數傳入，
+    讓多條呼叫路徑（例：副手物攻 + 魔攻）可安全共用同一套判定邏輯。
+    """
+    for perm in permutations(lines[:num_lines]):
+        ok = True
+        for i in range(num_lines):
+            is_legendary = (i == 0) if num_lines == 3 else True
+            target_min = s_val if is_legendary else r_val
+            if all_stats_min_s is not None:
+                all_stats_min = all_stats_min_s if is_legendary else all_stats_min_r
+            else:
+                all_stats_min = None
+            if not _check_line(
+                perm[i],
+                target_key,
+                target_min,
+                all_stats_min,
+                accept_crit3=accept_crit3,
+                accept_cooldown=accept_cooldown,
+                tolerance=tolerance,
+            ):
+                ok = False
+                break
+        if ok:
+            return True
+    return False
+
+
 _TWO_LINE_CUBE_TYPES = {"絕對附加方塊", "絕對附加方塊 (僅洗兩排)"}
 
 
@@ -800,26 +842,18 @@ class ConditionChecker:
 
     def _check_preset_any_pos(self, lines: list[PotentialLine]) -> bool:
         """預設模式任意位置：嘗試所有排列找到一組符合的分配。"""
-        for perm in permutations(lines[:self._num_lines]):
-            ok = True
-            for i in range(self._num_lines):
-                is_legendary = (i == 0) if self._num_lines == 3 else True
-                target_min = self._s_val if is_legendary else self._r_val
-                all_stats_min = (self._all_s if is_legendary else self._all_r) if self._include_all else None
-                if not _check_line(
-                    perm[i],
-                    self._target_key,
-                    target_min,
-                    all_stats_min,
-                    accept_crit3=self._is_glove,
-                    accept_cooldown=self._is_hat,
-                    tolerance=self._tolerance,
-                ):
-                    ok = False
-                    break
-            if ok:
-                return True
-        return False
+        return _run_preset_any_pos(
+            lines=lines,
+            num_lines=self._num_lines,
+            target_key=self._target_key,
+            s_val=self._s_val,
+            r_val=self._r_val,
+            all_stats_min_s=self._all_s if self._include_all else None,
+            all_stats_min_r=self._all_r if self._include_all else None,
+            accept_crit3=self._is_glove,
+            accept_cooldown=self._is_hat,
+            tolerance=self._tolerance,
+        )
 
     def _check_所有屬性(self, lines: list[PotentialLine]) -> bool:
         """所有屬性模式：對每個可能的主屬性跑一次預設規則，任一通過即可。
@@ -828,30 +862,20 @@ class ConditionChecker:
         三排必須都能用同一種主屬性（含全屬性、爆傷、冷卻）湊齊才算通過。
         """
         for attr, ((s_val, r_val), all_stats) in self._equip_thresholds.items():
-            target_key = _attr_to_ocr_key(attr)
             include_all = attr in _STATS_WITH_ALL_STATS and all_stats is not None
-            all_s = all_stats[0] if include_all and all_stats else 0
-            all_r = all_stats[1] if include_all and all_stats else 0
-
-            for perm in permutations(lines[:self._num_lines]):
-                ok = True
-                for i in range(self._num_lines):
-                    is_legendary = (i == 0) if self._num_lines == 3 else True
-                    target_min = s_val if is_legendary else r_val
-                    all_stats_min = (all_s if is_legendary else all_r) if include_all else None
-                    if not _check_line(
-                        perm[i],
-                        target_key,
-                        target_min,
-                        all_stats_min,
-                        accept_crit3=self._is_glove,
-                        accept_cooldown=self._is_hat,
-                        tolerance=self._tolerance,
-                    ):
-                        ok = False
-                        break
-                if ok:
-                    return True
+            if _run_preset_any_pos(
+                lines=lines,
+                num_lines=self._num_lines,
+                target_key=_attr_to_ocr_key(attr),
+                s_val=s_val,
+                r_val=r_val,
+                all_stats_min_s=all_stats[0] if include_all else None,
+                all_stats_min_r=all_stats[1] if include_all else None,
+                accept_crit3=self._is_glove,
+                accept_cooldown=self._is_hat,
+                tolerance=self._tolerance,
+            ):
+                return True
         return False
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
