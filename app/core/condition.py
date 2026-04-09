@@ -9,7 +9,7 @@ from app.models.potential import PotentialLine
 ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     # 主要屬性（用於條件判斷）
     "STR%": re.compile(r"STR\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "DEX%": re.compile(r"D?EX\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "DEX%": re.compile(r"(?<![A-Za-z0-9\u4e00-\u9fff:\uff1a])D?EX\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "INT%": re.compile(r"INT\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "LUK%": re.compile(r"LUK\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "全屬性%": re.compile(r"全屬性\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -97,13 +97,19 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("恢覆", "恢復"),
     ("MaxMOP", "MaxMP"),
     ("MaxCP", "MaxMP"),
-    # 傷害誤讀（傷 → 低/值/佩/集/優/信）
+    ("uxHP", "MaxHP"),
+    # 傷害誤讀（傷 → 低/值/佩/集/優/信/但/亿/焦/氣/僵）
     ("低害", "傷害"),
     ("值害", "傷害"),
     ("佩害", "傷害"),
     ("集害", "傷害"),
     ("優害", "傷害"),
     ("信害", "傷害"),
+    ("但害", "傷害"),
+    ("亿害", "傷害"),
+    ("焦害", "傷害"),
+    ("氣害", "傷害"),
+    ("僵害", "傷害"),
     # 害 → 喜 誤讀
     ("傷喜", "傷害"),
     ("集喜", "傷害"),
@@ -112,18 +118,25 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("最終害", "最終傷害"),
     # 攻擊誤讀
     ("攻事", "攻擊"),
-    # 爆擊誤讀（爆 → 爆華/煬）
+    # 爆擊誤讀（爆 → 爆華/爆草/爆吉/煬/煜華）
+    ("煜華", "爆擊"),
     ("爆華", "爆擊"),
+    ("爆草", "爆擊"),
+    ("爆吉", "爆擊"),
     ("煬擊", "爆擊"),
     # LUK/DEX 誤讀
     ("LIK", "LUK"),
+    ("LJK", "LUK"),
     ("DIK", "DEX"),
+    ("DT+", "DEX+"),
     # 屬性誤讀（屬 → 屋/國/慶）
     ("全屋性", "全屬性"),
     ("全國性", "全屬性"),
     ("全慶性", "全屬性"),
     # 簡體 → 繁體（視）
     ("無视", "無視"),
+    # 無視怪物防禦誤讀（禦 被吃掉，防率 → 防禦率）
+    ("怪物防率", "怪物防禦率"),
     # HP恢復道具誤讀（恢递具 → 恢復道具，H → HP）
     # 注意：H恢復道具 依賴上一行先將 恢递具 → 恢復道具，順序不可對調
     ("恢递具", "恢復道具"),
@@ -132,8 +145,14 @@ _OCR_FIXES: list[tuple[str, str]] = [
 
 # MaxHP/MaxMP 誤讀（M 被吃掉，axHP → MaxHP），前方不能有字母以避免誤改正確的 MaxHP
 _OCR_AX_TO_MAX = re.compile(r"(?<![A-Za-z])ax(HP|MP)")
-# INT 誤讀（I↔1 混淆 + N↔T/M 混淆），前方不能有字母數字以避免誤匹配
-_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:1NT|1IT|1TT|IIT|IT|IM)(?=[\+\d])")
+# DEX 小寫誤讀（ex → DEX），前方不能有字母以避免誤匹配
+_OCR_LOWERCASE_EX = re.compile(r"(?<![a-zA-Z])ex(?=[+:\uff1a\d])")
+# DEX 誤讀（DET/DEI/DE/DEK/DEY → DEX），需邊界限制（含 CJK/數字/冒號）
+_OCR_DEX_FIXES = re.compile(r"(?<![A-Za-z0-9\u4e00-\u9fff:\uff1a])(?:DET|DEI|DEK|DEY|DE)(?=[+:\uff1a\d])")
+# STR 誤讀（STE → STR），需邊界限制避免 SYSTEM/STEP 等誤匹配
+_OCR_STE_TO_STR = re.compile(r"(?<![A-Za-z])STE(?=[+:\uff1a\d%])")
+# INT 誤讀（I↔1 混淆 + N↔T/M 混淆 + IHT/IMT/IINT），前方不能有字母數字以避免誤匹配
+_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:IINT|IHT|IMT|1NT|1IT|1TT|IIT|IT|IM)(?=[\+\d:\uff1a])")
 _OCR_DIGIT_FIXES = re.compile(r"(?<=[+\-])B(?=%)")
 # OCR 有時在 % 後多讀到下一碎片的殘留數字（如 +6%6 → +6%）
 _TRAILING_AFTER_PERCENT = re.compile(r"(%)\d+$")
@@ -149,7 +168,13 @@ def _fix_ocr_text(text: str) -> str:
         text = text.replace(wrong, correct)
     # axHP → MaxHP, axMP → MaxMP（前方無字母時）
     text = _OCR_AX_TO_MAX.sub(r"Max\1", text)
-    # INT 誤讀修正（IT/1NT/1IT/1TT/IIT → INT）
+    # ex → DEX（小寫修正，前方無字母時）
+    text = _OCR_LOWERCASE_EX.sub("DEX", text)
+    # DET/DEI/DE/DEK/DEY → DEX
+    text = _OCR_DEX_FIXES.sub("DEX", text)
+    # STE → STR（R→E 誤讀，邊界限制）
+    text = _OCR_STE_TO_STR.sub("STR", text)
+    # INT 誤讀修正（IINT/IHT/IMT/IT/1NT/1IT/1TT/IIT/IM → INT）
     text = _OCR_INT_FIXES.sub("INT", text)
     # 數值位置的 B → 8（如 +B% → +8%）
     text = _OCR_DIGIT_FIXES.sub("8", text)
@@ -866,6 +891,9 @@ class ConditionChecker:
         if lc.attribute == "技能冷卻時間":
             return line.attribute == "技能冷卻時間" and line.value >= 1
         target_key = _attr_to_ocr_key(lc.attribute)
+        # 爆擊傷害不套用容錯（1% 和 3% 差距太小，容錯會讓 1% 通過 3% 的門檻）
+        if lc.attribute == "爆擊傷害":
+            return line.attribute == target_key and line.value >= lc.min_value
         return line.attribute == target_key and line.value + self._tolerance >= lc.min_value
 
     def _check_雙終被(self, lines: list[PotentialLine]) -> bool:

@@ -333,6 +333,160 @@ class TestParsePotentialLine:
         assert line.attribute == "HP恢復效率%"
         assert line.value == 30
 
+    # --- 20260409 log 新增 OCR 修正 ---
+
+    def test_ocr_fix_final_damage_dan_hai(self):
+        """最终但害 → 最終傷害（傷→但）"""
+        line = parse_potential_line("最终但害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_final_damage_yi_hai(self):
+        """最终亿害 → 最終傷害（傷→亿）"""
+        line = parse_potential_line("最终亿害：+25%")
+        assert line.attribute == "最終傷害%"
+        assert line.value == 25
+
+    def test_ocr_fix_crit_rate_baocao(self):
+        """爆草機率 → 爆擊機率（擊→草）"""
+        line = parse_potential_line("爆草機率：+25%")
+        assert line.attribute == "爆擊機率%"
+        assert line.value == 25
+
+    def test_ocr_fix_ignore_def_missing_yu(self):
+        """無视怪物防率 → 無視怪物防禦率（禦 被吃掉）"""
+        line = parse_potential_line("無视怪物防率：+50%")
+        assert line.attribute == "無視怪物防禦%"
+        assert line.value == 50
+
+    def test_all_stats_flat_value_is_unknown(self):
+        """全属性：+25（萌獸平值，無 %）→ 未知（非目標潛能）"""
+        line = parse_potential_line("全属性：+25")
+        assert line.attribute == "未知"
+
+    def test_dex_regex_no_false_positive_after_cjk(self):
+        """全屬性EX+18%（EX 前有中文）不應誤判為 DEX%"""
+        line = parse_potential_line("全屬性EX+18%")
+        assert line.attribute != "DEX%"
+
+    # --- 20260409 log 新增 OCR 修正（第二批） ---
+
+    def test_ocr_fix_crit_damage_jiao_hai(self):
+        """爆草焦害 → 爆擊傷害（焦害→傷害）"""
+        line = parse_potential_line("爆草焦害+1%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 1
+
+    def test_ocr_fix_crit_damage_qi_hai(self):
+        """爆擊氣害 → 爆擊傷害（氣害→傷害）"""
+        line = parse_potential_line("爆擊氣害+1%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 1
+
+    def test_ocr_fix_str_as_ste(self):
+        """STE → STR（R→E 誤讀）"""
+        line = parse_potential_line("STE+19")
+        assert line.attribute == "STR"
+        assert line.value == 19
+
+    def test_ocr_fix_dex_as_dt(self):
+        """DT+21 → DEX+21（EX→T 誤讀）"""
+        line = parse_potential_line("DT+21")
+        assert line.attribute == "DEX"
+        assert line.value == 21
+
+    def test_ocr_fix_luk_as_ljk(self):
+        """LJK → LUK（U→J 誤讀）"""
+        line = parse_potential_line("LJK+9%")
+        assert line.attribute == "LUK%"
+        assert line.value == 9
+
+    def test_ocr_fix_maxhp_as_uxhp(self):
+        """uxHP → MaxHP（M 被吃掉 + a→u）"""
+        line = parse_potential_line("uxHP+315")
+        assert line.attribute == "MaxHP"
+        assert line.value == 315
+
+    def test_ocr_fix_lowercase_ex_percent(self):
+        """ex+7% → DEX+7% → DEX%（小寫修正）"""
+        line = parse_potential_line("ex+7%")
+        assert line.attribute == "DEX%"
+        assert line.value == 7
+
+    def test_ocr_fix_lowercase_ex_flat(self):
+        """ex+19 → DEX+19 → flat DEX（不被 PERCENT_AS_NINE 誤判為 DEX% 1）"""
+        line = parse_potential_line("ex+19")
+        assert line.attribute == "DEX"
+        assert line.value == 19
+
+    # --- 用戶整理第三批 OCR 修正 ---
+
+    def test_ocr_fix_crit_damage_bao_ji_dan_hai(self):
+        """爆吉但害 → 爆擊傷害"""
+        line = parse_potential_line("爆吉但害+3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_crit_damage_yu_hua_jiang_hai(self):
+        """煜華僵害 → 爆擊傷害"""
+        line = parse_potential_line("煜華僵害+1%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 1
+
+    def test_ocr_fix_crit_damage_bao_hua_jiang_hai(self):
+        """爆華僵害 → 爆擊傷害"""
+        line = parse_potential_line("爆華僵害+3%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 3
+
+    def test_ocr_fix_dex_as_det(self):
+        """DET → DEX"""
+        line = parse_potential_line("DET+7%")
+        assert line.attribute == "DEX%"
+        assert line.value == 7
+
+    def test_ocr_fix_dex_as_dei(self):
+        """DEI → DEX"""
+        line = parse_potential_line("DEI+9%")
+        assert line.attribute == "DEX%"
+        assert line.value == 9
+
+    def test_ocr_fix_dex_as_de(self):
+        """DE → DEX（X 被吃掉）"""
+        line = parse_potential_line("DE+6%")
+        assert line.attribute == "DEX%"
+        assert line.value == 6
+
+    def test_ocr_fix_dex_as_dek(self):
+        """DEK → DEX"""
+        line = parse_potential_line("DEK+9%")
+        assert line.attribute == "DEX%"
+        assert line.value == 9
+
+    def test_ocr_fix_dex_as_dey(self):
+        """DEY → DEX"""
+        line = parse_potential_line("DEY+7%")
+        assert line.attribute == "DEX%"
+        assert line.value == 7
+
+    def test_ocr_fix_int_as_iht(self):
+        """IHT → INT（N→H 誤讀）"""
+        line = parse_potential_line("IHT+6%")
+        assert line.attribute == "INT%"
+        assert line.value == 6
+
+    def test_ocr_fix_int_as_imt(self):
+        """IMT → INT（N→M 誤讀，3 字元）"""
+        line = parse_potential_line("IMT+8%")
+        assert line.attribute == "INT%"
+        assert line.value == 8
+
+    def test_ocr_fix_int_as_iint(self):
+        """IINT → INT（多讀一個 I）"""
+        line = parse_potential_line("IINT+9%")
+        assert line.attribute == "INT%"
+        assert line.value == 9
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""
@@ -1140,6 +1294,57 @@ class TestConditionCheckerCustomMode:
             PotentialLine("STR%", 1),
         ]
         assert checker.check(lines) is True
+
+    def test_custom_crit_damage_no_tolerance(self):
+        """爆擊傷害不套用容錯：1% 不應通過 3% 門檻"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("爆擊傷害", 3, position=1),
+                LineCondition("爆擊傷害", 3, position=2),
+            ],
+        )
+        checker = ConditionChecker(config)
+        # 1% + 3%：第一排 1% 不應通過
+        lines = [
+            PotentialLine("爆擊傷害%", 1),
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("STR%", 9),
+        ]
+        assert checker.check(lines) is False
+
+    def test_custom_crit_damage_both_3_pass(self):
+        """爆擊傷害兩排都 3% 應通過"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("爆擊傷害", 3, position=1),
+                LineCondition("爆擊傷害", 3, position=2),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("STR%", 9),
+        ]
+        assert checker.check(lines) is True
+
+    def test_custom_crit_damage_any_pos_no_tolerance(self):
+        """爆擊傷害任意一排模式：1% 不應通過 3% 門檻"""
+        config = AppConfig(
+            use_preset=False,
+            custom_lines=[
+                LineCondition("爆擊傷害", 3, position=0),
+            ],
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("爆擊傷害%", 1),
+            PotentialLine("STR%", 9),
+            PotentialLine("LUK%", 7),
+        ]
+        assert checker.check(lines) is False
 
 
 class TestPresetPermutationCheck:
