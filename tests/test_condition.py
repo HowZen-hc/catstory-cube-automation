@@ -934,6 +934,232 @@ class TestConditionCheckerWeapon:
         assert checker.check(lines) is True
 
 
+class TestConditionCheckerSubWeaponConvertible:
+    """副手雙攻擊力 (可轉換) — 三排全物攻 或 三排全魔攻皆合格；混合拒絕。
+
+    遊戲機制：副手可透過防具轉換整件互換物攻／魔攻，故兩種屬性皆視為合格。
+    整件轉換語意（D1）：混合洗出（例：2 物 1 魔）不通過。
+    """
+
+    _ATTR = "物理/魔法攻擊力 (可轉換)"
+    _SUB = "輔助武器 (副手)"
+
+    def _make_config(self, cube_type: str = "珍貴附加方塊 (粉紅色)") -> AppConfig:
+        return AppConfig(
+            cube_type=cube_type,
+            equipment_type=self._SUB,
+            target_attribute=self._ATTR,
+        )
+
+    # ── C1-C7：3 排方塊 ──
+
+    def test_three_rows_pure_phys_pass(self):
+        """C1：三排純物攻（S 13 + 罕 10 + 罕 9）通過。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 10),
+            PotentialLine("物理攻擊力%", 9),
+        ]
+        assert checker.check(lines) is True
+
+    def test_three_rows_pure_magic_pass(self):
+        """C2：三排純魔攻通過。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("魔法攻擊力%", 13),
+            PotentialLine("魔法攻擊力%", 10),
+            PotentialLine("魔法攻擊力%", 9),
+        ]
+        assert checker.check(lines) is True
+
+    def test_three_rows_mixed_reject(self):
+        """C3：混合洗出（2 物 1 魔）拒絕 — 整件轉換語意。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("魔法攻擊力%", 10),
+            PotentialLine("物理攻擊力%", 9),
+        ]
+        assert checker.check(lines) is False
+
+    def test_three_rows_mixed_all_high_reject(self):
+        """C4：即便門檻都達標，混合也拒絕。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("魔法攻擊力%", 12),
+            PotentialLine("物理攻擊力%", 13),
+        ]
+        assert checker.check(lines) is False
+
+    def test_three_rows_phys_low_reject(self):
+        """C5：低於罕見門檻（6 + tolerance 2 = 8 < 9）拒絕。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 10),
+            PotentialLine("物理攻擊力%", 6),
+        ]
+        assert checker.check(lines) is False
+
+    def test_three_rows_phys_min_edge_pass(self):
+        """C6：真實容錯邊界 — S 最低 10 (10+2=12)、R 最低 7 (7+2=9)。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 10),
+            PotentialLine("物理攻擊力%", 7),
+            PotentialLine("物理攻擊力%", 7),
+        ]
+        assert checker.check(lines) is True
+
+    def test_three_rows_phys_below_min_edge_reject(self):
+        """C6b：剛好低於 S 邊界（9+2=11 < 12）→ 拒絕。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 9),
+            PotentialLine("物理攻擊力%", 7),
+            PotentialLine("物理攻擊力%", 7),
+        ]
+        assert checker.check(lines) is False
+
+    def test_three_rows_magic_min_edge_pass(self):
+        """C6c：魔攻對稱邊界 — 證明容錯對稱套用到魔攻路徑。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("魔法攻擊力%", 10),
+            PotentialLine("魔法攻擊力%", 7),
+            PotentialLine("魔法攻擊力%", 7),
+        ]
+        assert checker.check(lines) is True
+
+    def test_three_rows_magic_below_min_edge_reject(self):
+        """C6d：魔攻剛好低於 S 邊界 → 拒絕。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("魔法攻擊力%", 9),
+            PotentialLine("魔法攻擊力%", 7),
+            PotentialLine("魔法攻擊力%", 7),
+        ]
+        assert checker.check(lines) is False
+
+    def test_three_rows_illegal_attr_reject(self):
+        """C7：OCR 防呆 — 非法屬性（STR）出現時拒絕，不 crash。"""
+        checker = ConditionChecker(self._make_config())
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("STR%", 9),
+            PotentialLine("物理攻擊力%", 9),
+        ]
+        assert checker.check(lines) is False
+
+    # ── C8-C10：2 排方塊（絕對附加方塊）──
+
+    def test_two_rows_pure_phys_pass(self):
+        """C8：2 排方塊純物攻通過（兩排皆 S 門檻 12）。"""
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 12),
+        ]
+        assert checker.check(lines) is True
+
+    def test_two_rows_pure_magic_pass(self):
+        """C9：2 排方塊純魔攻通過。"""
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        lines = [
+            PotentialLine("魔法攻擊力%", 12),
+            PotentialLine("魔法攻擊力%", 12),
+        ]
+        assert checker.check(lines) is True
+
+    def test_two_rows_mixed_reject(self):
+        """C10：2 排方塊混合拒絕。"""
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("魔法攻擊力%", 12),
+        ]
+        assert checker.check(lines) is False
+
+    def test_two_rows_phys_low_reject(self):
+        """C10b：2 排方塊低於 S 門檻 12%（含容錯）拒絕。"""
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 9),  # 9+2=11 < 12
+        ]
+        assert checker.check(lines) is False
+
+    # ── C11-C12：摘要快照 ──
+
+    def test_summary_three_rows_exact(self):
+        """C11：三排方塊摘要 — 精確列表快照（回歸偵測）。"""
+        config = self._make_config()
+        assert generate_condition_summary(config) == [
+            "三排需同屬性（全物攻 或 全魔攻）且符合:",
+            "  · 物理攻擊力 12% or 9%",
+            "  · 魔法攻擊力 12% or 9%",
+            "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
+        ]
+
+    def test_summary_two_rows(self):
+        """C12：2 排方塊摘要（S 門檻 12）— 逐項檢查。"""
+        config = self._make_config(cube_type="絕對附加方塊")
+        summary = generate_condition_summary(config)
+        joined = "\n".join(summary)
+        assert "兩排需同屬性" in joined
+        assert "全物攻 或 全魔攻" in joined
+        assert "物理攻擊力 12%" in joined
+        assert "魔法攻擊力 12%" in joined
+        assert "混合洗出不算合格" in joined
+        # 負向斷言：不該出現 3 排語境或舊文案
+        assert "三排" not in joined
+
+    # ── C13：D2 強制防線 ──
+
+    def test_main_weapon_rejects_convertible_attr(self):
+        """C13：D2 強制 — 主武器 + 可轉換字串應 invalid，summary 回傳錯誤訊息。
+
+        防止手改 config.json 繞過 UI 限制（主武器同樣有物／魔攻門檻）。
+        """
+        config = AppConfig(
+            equipment_type="主武器 / 徽章 (米特拉)",
+            target_attribute=self._ATTR,
+        )
+        checker = ConditionChecker(config)
+        # 即便給三排滿分物攻也應被拒絕（_valid = False）
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("物理攻擊力%", 13),
+        ]
+        assert checker.check(lines) is False
+
+        summary = generate_condition_summary(config)
+        assert any("僅適用於輔助武器" in line for line in summary)
+
+    def test_armor_rejects_convertible_attr(self):
+        """C13b：D2 強制 — 防具（永恆 / 光輝）+ 可轉換字串同樣應 invalid。
+
+        防止 guard 被誤寫成只阻擋武器類，忽略其他裝備類型。
+        """
+        config = AppConfig(
+            equipment_type="永恆 / 光輝",
+            target_attribute=self._ATTR,
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("STR%", 9),
+            PotentialLine("STR%", 7),
+            PotentialLine("STR%", 7),
+        ]
+        assert checker.check(lines) is False
+
+        summary = generate_condition_summary(config)
+        assert any("僅適用於輔助武器" in line for line in summary)
+
+
 class TestConditionCheckerGlove:
     """手套"""
 
