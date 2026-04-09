@@ -451,12 +451,15 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
     },
 }
 
+# 副手雙攻擊力（可轉換）— 遊戲內副手可整件互轉物攻／魔攻
+_ATTACK_CONVERTIBLE = "物理/魔法攻擊力 (可轉換)"
+
 # 裝備類型 → 可選屬性
 EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
     "永恆 / 光輝": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "一般裝備 (神秘、漆黑、頂培)": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "主武器 / 徽章 (米特拉)": ["物理攻擊力", "魔法攻擊力"],
-    "輔助武器 (副手)": ["物理攻擊力", "魔法攻擊力"],
+    "輔助武器 (副手)": [_ATTACK_CONVERTIBLE, "物理攻擊力", "魔法攻擊力"],
     "手套": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "帽子": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
@@ -560,6 +563,48 @@ def _check_line(
     return False
 
 
+def _run_preset_any_pos(
+    lines: list[PotentialLine],
+    num_lines: int,
+    target_key: str,
+    s_val: int,
+    r_val: int,
+    all_stats_min_s: int | None,
+    all_stats_min_r: int | None,
+    accept_crit3: bool,
+    accept_cooldown: bool,
+    tolerance: int,
+) -> bool:
+    """預設模式任意位置的純函式版本：嘗試所有排列找到一組符合的分配。
+
+    不讀取任何 ConditionChecker 實例狀態，所有輸入皆透過參數傳入，
+    讓多條呼叫路徑（例：副手物攻 + 魔攻）可安全共用同一套判定邏輯。
+    """
+    for perm in permutations(lines[:num_lines]):
+        ok = True
+        for i in range(num_lines):
+            is_legendary = (i == 0) if num_lines == 3 else True
+            target_min = s_val if is_legendary else r_val
+            if all_stats_min_s is not None:
+                all_stats_min = all_stats_min_s if is_legendary else all_stats_min_r
+            else:
+                all_stats_min = None
+            if not _check_line(
+                perm[i],
+                target_key,
+                target_min,
+                all_stats_min,
+                accept_crit3=accept_crit3,
+                accept_cooldown=accept_cooldown,
+                tolerance=tolerance,
+            ):
+                ok = False
+                break
+        if ok:
+            return True
+    return False
+
+
 _TWO_LINE_CUBE_TYPES = {"絕對附加方塊", "絕對附加方塊 (僅洗兩排)"}
 
 
@@ -627,6 +672,31 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
             "需要 3 排中包含:",
             "  2 排 最終傷害 ≥ 20%",
             "  1 排 被動技能2（依照被動技能 2 來增加）",
+        ]
+
+    # 副手雙攻擊力（可轉換）— D2 強制：僅限副手
+    if attr == _ATTACK_CONVERTIBLE:
+        if equip != "輔助武器 (副手)":
+            return ["無法產生條件：『物理/魔法攻擊力 (可轉換)』僅適用於輔助武器 (副手)"]
+        equip_thresholds = THRESHOLD_TABLE.get(resolved, {})
+        phys = equip_thresholds.get("物理攻擊力")
+        magic = equip_thresholds.get("魔法攻擊力")
+        if not phys or not magic:
+            return ["無法產生條件：裝備類型或屬性不正確"]
+        (phys_s, phys_r), _ = phys
+        (magic_s, magic_r), _ = magic
+        if num_lines == 2:
+            return [
+                "兩排需同屬性（全物攻 或 全魔攻）且符合:",
+                f"  · 物理攻擊力 {phys_s}%",
+                f"  · 魔法攻擊力 {magic_s}%",
+                "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
+            ]
+        return [
+            "三排需同屬性（全物攻 或 全魔攻）且符合:",
+            f"  · 物理攻擊力 {phys_s}% or {phys_r}%",
+            f"  · 魔法攻擊力 {magic_s}% or {magic_r}%",
+            "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
         ]
 
     is_glove = equip in GLOVE_TYPES
@@ -748,6 +818,9 @@ class ConditionChecker:
         resolved = _resolve_equip_type(equip, config.is_eternal)
         attr = config.target_attribute
 
+        # 預設旗標：任何早退分支都不會讓後續屬性存取出錯
+        self._is_attack_convertible = False
+
         # 萌獸雙終被：特殊條件
         self._is_雙終被 = equip == "萌獸" and attr == "雙終被"
         if self._is_雙終被:
@@ -762,6 +835,27 @@ class ConditionChecker:
         if self._is_所有屬性:
             self._equip_thresholds = THRESHOLD_TABLE.get(resolved, {})
             self._valid = bool(self._equip_thresholds)
+            return
+
+        # 副手雙攻擊力（可轉換）— D2 強制：僅允許副手，防止手改 config 繞過 UI
+        self._is_attack_convertible = (
+            attr == _ATTACK_CONVERTIBLE and equip == "輔助武器 (副手)"
+        )
+        if self._is_attack_convertible:
+            equip_thresholds = THRESHOLD_TABLE.get(resolved, {})
+            phys = equip_thresholds.get("物理攻擊力")
+            magic = equip_thresholds.get("魔法攻擊力")
+            if phys is None or magic is None:
+                self._valid = False
+                return
+            (self._phys_s_val, self._phys_r_val), _ = phys
+            (self._magic_s_val, self._magic_r_val), _ = magic
+            self._valid = True
+            return
+
+        # 防呆：attr == _ATTACK_CONVERTIBLE 但 equip 不是副手（手改 config 情境）
+        if attr == _ATTACK_CONVERTIBLE:
+            self._valid = False
             return
 
         thresholds = THRESHOLD_TABLE.get(resolved, {}).get(attr)
@@ -796,30 +890,51 @@ class ConditionChecker:
         if self._is_所有屬性:
             return self._check_所有屬性(lines)
 
+        if self._is_attack_convertible:
+            return self._check_attack_convertible(lines)
+
         return self._check_preset_any_pos(lines)
 
     def _check_preset_any_pos(self, lines: list[PotentialLine]) -> bool:
         """預設模式任意位置：嘗試所有排列找到一組符合的分配。"""
-        for perm in permutations(lines[:self._num_lines]):
-            ok = True
-            for i in range(self._num_lines):
-                is_legendary = (i == 0) if self._num_lines == 3 else True
-                target_min = self._s_val if is_legendary else self._r_val
-                all_stats_min = (self._all_s if is_legendary else self._all_r) if self._include_all else None
-                if not _check_line(
-                    perm[i],
-                    self._target_key,
-                    target_min,
-                    all_stats_min,
-                    accept_crit3=self._is_glove,
-                    accept_cooldown=self._is_hat,
-                    tolerance=self._tolerance,
-                ):
-                    ok = False
-                    break
-            if ok:
-                return True
-        return False
+        return _run_preset_any_pos(
+            lines=lines,
+            num_lines=self._num_lines,
+            target_key=self._target_key,
+            s_val=self._s_val,
+            r_val=self._r_val,
+            all_stats_min_s=self._all_s if self._include_all else None,
+            all_stats_min_r=self._all_r if self._include_all else None,
+            accept_crit3=self._is_glove,
+            accept_cooldown=self._is_hat,
+            tolerance=self._tolerance,
+        )
+
+    def _check_attack_convertible(self, lines: list[PotentialLine]) -> bool:
+        """副手雙攻擊力（可轉換）：三排全物攻 或 三排全魔攻皆合格。
+
+        整件轉換語意（D1）：混合洗出（例：2 物 1 魔）不通過，
+        因遊戲內防具轉換是整件統一互換，混合無法完整轉為單一屬性。
+        """
+        candidates = (
+            ("物理攻擊力%", self._phys_s_val, self._phys_r_val),
+            ("魔法攻擊力%", self._magic_s_val, self._magic_r_val),
+        )
+        return any(
+            _run_preset_any_pos(
+                lines=lines,
+                num_lines=self._num_lines,
+                target_key=target_key,
+                s_val=s_val,
+                r_val=r_val,
+                all_stats_min_s=None,
+                all_stats_min_r=None,
+                accept_crit3=False,
+                accept_cooldown=False,
+                tolerance=self._tolerance,
+            )
+            for target_key, s_val, r_val in candidates
+        )
 
     def _check_所有屬性(self, lines: list[PotentialLine]) -> bool:
         """所有屬性模式：對每個可能的主屬性跑一次預設規則，任一通過即可。
@@ -828,30 +943,20 @@ class ConditionChecker:
         三排必須都能用同一種主屬性（含全屬性、爆傷、冷卻）湊齊才算通過。
         """
         for attr, ((s_val, r_val), all_stats) in self._equip_thresholds.items():
-            target_key = _attr_to_ocr_key(attr)
             include_all = attr in _STATS_WITH_ALL_STATS and all_stats is not None
-            all_s = all_stats[0] if include_all and all_stats else 0
-            all_r = all_stats[1] if include_all and all_stats else 0
-
-            for perm in permutations(lines[:self._num_lines]):
-                ok = True
-                for i in range(self._num_lines):
-                    is_legendary = (i == 0) if self._num_lines == 3 else True
-                    target_min = s_val if is_legendary else r_val
-                    all_stats_min = (all_s if is_legendary else all_r) if include_all else None
-                    if not _check_line(
-                        perm[i],
-                        target_key,
-                        target_min,
-                        all_stats_min,
-                        accept_crit3=self._is_glove,
-                        accept_cooldown=self._is_hat,
-                        tolerance=self._tolerance,
-                    ):
-                        ok = False
-                        break
-                if ok:
-                    return True
+            if _run_preset_any_pos(
+                lines=lines,
+                num_lines=self._num_lines,
+                target_key=_attr_to_ocr_key(attr),
+                s_val=s_val,
+                r_val=r_val,
+                all_stats_min_s=all_stats[0] if include_all else None,
+                all_stats_min_r=all_stats[1] if include_all else None,
+                accept_crit3=self._is_glove,
+                accept_cooldown=self._is_hat,
+                tolerance=self._tolerance,
+            ):
+                return True
         return False
 
     def _check_custom(self, lines: list[PotentialLine]) -> bool:
