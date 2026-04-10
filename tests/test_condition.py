@@ -248,10 +248,22 @@ class TestParsePotentialLine:
         assert line.value == 20
 
     def test_boss_damage_fullwidth_space(self):
-        """Boss怪物攻擊時\u3000傷害（全形空格）應辨識為Boss傷害"""
-        line = parse_potential_line("Boss怪物攻擊時\u3000傷害 +40%")
+        """攻擊Boss怪物時\u3000傷害（全形空格）應辨識為Boss傷害"""
+        line = parse_potential_line("攻擊Boss怪物時\u3000傷害 +40%")
         assert line.attribute == "Boss傷害%"
         assert line.value == 40
+
+    def test_boss_damage_real_game_format(self):
+        """遊戲實際格式：攻擊Boss怪物時傷害 +12%（數值前有半形空白）"""
+        line = parse_potential_line("攻擊Boss怪物時傷害 +12%")
+        assert line.attribute == "Boss傷害%"
+        assert line.value == 12
+
+    def test_boss_damage_no_space(self):
+        """攻擊Boss怪物時傷害+12%（無空白）應辨識為Boss傷害"""
+        line = parse_potential_line("攻擊Boss怪物時傷害+12%")
+        assert line.attribute == "Boss傷害%"
+        assert line.value == 12
 
     # --- 20260406 log 新增 OCR 修正 ---
 
@@ -573,6 +585,15 @@ class TestParsePotentialLines:
         lines = parse_potential_lines(frags)
         attrs = [ln.attribute for ln in lines]
         assert "最終傷害%" in attrs
+
+    def test_boss_damage_merged_fragments(self):
+        """攻擊Boss怪物時傷害 在碎片合併路徑下應辨識為 Boss傷害（OCR 拆成多段）"""
+        frags = self._same_row(["攻擊Boss", "怪物時傷害", "+12%"])
+        lines = parse_potential_lines(frags)
+        known = [ln for ln in lines if ln.attribute != "未知"]
+        assert len(known) == 1
+        assert known[0].attribute == "Boss傷害%"
+        assert known[0].value == 12
 
     def test_always_returns_3_lines(self):
         """永遠回傳恰好 3 個 PotentialLine"""

@@ -23,7 +23,7 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "無視怪物防禦%": re.compile(r"無視怪物防禦\s*[力率]?\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 必須在 爆擊傷害% 之後，避免 爆X傷害 被誤判為傷害
     "傷害%": re.compile(r"(?<![擊擎時終])傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "Boss傷害%": re.compile(r"[Bb][Oo][Ss][Ss]\s*怪物攻擊時\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    "Boss傷害%": re.compile(r"攻擊\s*[Bb][Oo][Ss][Ss]\s*怪物時\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "爆擊機率%": re.compile(r"爆擊機率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "HP恢復效率%": re.compile(r"HP恢復道具及恢復技能效率\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "MP消耗%": re.compile(r"所有技能的?MP消耗\s*[:\uff1a]?\s*-?\s*(\d+) ?%"),
