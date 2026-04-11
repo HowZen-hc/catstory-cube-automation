@@ -1,7 +1,9 @@
 # OCR 爆擊傷害泛化辨識 Technical Spec
 
-> 本 spec 實作 [0-feasibility-study/1-generalized-recognition.md](./0-feasibility-study/1-generalized-recognition.md) Section 6 的 **Option M3**（M1' 受限萬用字元 regex + M2 字串對修補）。
+> 本 spec 對應 [0-feasibility-study/1-generalized-recognition.md](./0-feasibility-study/1-generalized-recognition.md) Section 6 的 **Option M3 標籤**（方法論校正後實質為簡化泛化 regex + M2 pair patches，不含原定義的排除字元集，詳見 [Section 9.1](#91-關於-m3-這個標籤歷史脈絡)）。
 > 相關背景：[0-feasibility-study.md](./0-feasibility-study/0-feasibility-study.md)（整體 OCR 匹配策略研究）
+>
+> **術語約定**：本文件後續提到的 `M3 regex` 指最終實作的 `爆.{1,3}\s*傷?[害喜]`（無排除字元集），而非可行性研究原始定義的 M-prime 或 M3。
 
 ## 1. Requirement Summary
 
@@ -20,14 +22,14 @@
 
 1. **11/11 FAIL case 修復率**（Section 3.2 全覆蓋）
 2. **零 FP 引入**：既有 238 個測試全數通過 + 新增 regression + FP guard
-3. **自動涵蓋未見變體**：M1' 受限萬用字元 regex 自動吸收中段 1–3 字的未知誤讀
+3. **自動涵蓋未見變體**：M3 regex 自動吸收中段 1–3 字的未知誤讀
 4. **維護成本不顯著增加**：不進入 `_OCR_FIXES` 無限線性膨脹的路徑
 
 ### Scope
 
 **In scope**
 - `app/core/condition.py` 修改：
-  - `ATTRIBUTE_PATTERNS["爆擊傷害%"]` regex 收斂為 M1'
+  - `ATTRIBUTE_PATTERNS["爆擊傷害%"]` regex 泛化為 M3 regex（`爆.{1,3}\s*傷?[害喜]`）
   - `_OCR_FIXES` 新增 7 條 pair（4 scoped + 3 suffix）+ 1 條英文 pair
   - `_OCR_DEX_FIXES` / `_OCR_INT_FIXES` 擴充字元集
 - `tests/test_condition.py` 新增 18 個爆擊傷害 real case + 4 個英文屬性 real case + 3 個結構 boundary/order-lock/cross-row test（合計約 25 新 test）
@@ -82,8 +84,8 @@ sequenceDiagram
     Fx->>Fx: _OCR_DEX_FIXES / _OCR_INT_FIXES / ...
     Fx-->>Pp: normalized
 
-    Pp->>Pat: search 爆擊傷害% (M1')
-    alt M1' match
+    Pp->>Pat: search 爆擊傷害% (M3 regex)
+    alt M3 regex match
         Pat-->>Pp: PotentialLine(爆擊傷害%)
     else no match
         Pp->>Pat: fallback 傷害% / Boss傷害% / 最終傷害% / ...
@@ -169,7 +171,7 @@ sequenceDiagram
 
 | 組 | Case | 路徑 |
 |---|------|------|
-| A | `爆擎悔害` | suffix pair `悔害 → 傷害` 先觸發 → `爆擎傷害` → M1' regex 直接命中 |
+| A | `爆擎悔害` | suffix pair `悔害 → 傷害` 先觸發 → `爆擎傷害` → M3 regex 直接命中 |
 | B | `爆擎害` | scoped pair `爆擎害 → 爆擊傷害` 直接命中（不經 regex 擴散） |
 
 兩條路徑互補，確保「末字替換」與「傷被吃掉」兩種變異都被覆蓋。
@@ -216,19 +218,19 @@ _OCR_INT_FIXES = re.compile(
 
 | # | 約束 | 若違反的後果 | 嚴格性 |
 |---|------|-------------|:------:|
-| 1 | scoped pair `爆華害 → 爆擊傷害` 必須在 broad `爆華 → 爆擊` 之前 | broad pair 先觸發，`爆華害` 降階為 `爆擊害`，scoped pair 後續永不生效。M1' 的 `傷?` optional 仍可命中，**attribute/value 正確**，但：(a) 單行 `parse_potential_line` raw_text 不變（保留原文）；(b) 合併路徑 `_parse_merged_text` 的 raw_text 會變成 `爆擊害+9%` 而非 `爆擊傷害+9%`，斷言 canonical raw_text 的測試會失敗；(c) scoped pair 分支失去測試覆蓋 | **防禦/風格**（非正確性，建議保留） |
+| 1 | scoped pair `爆華害 → 爆擊傷害` 必須在 broad `爆華 → 爆擊` 之前 | broad pair 先觸發，`爆華害` 降階為 `爆擊害`，scoped pair 後續永不生效。M3 regex 的 `傷?` optional 仍可命中，**attribute/value 正確**，但：(a) 單行 `parse_potential_line` raw_text 不變（保留原文）；(b) 合併路徑 `_parse_merged_text` 的 raw_text 會變成 `爆擊害+9%` 而非 `爆擊傷害+9%`，斷言 canonical raw_text 的測試會失敗；(c) scoped pair 分支失去測試覆蓋 | **防禦/風格**（非正確性，建議保留） |
 | 2 | `ATTRIBUTE_PATTERNS` 中 `爆擊傷害%` 位於 `傷害%` 之前 | `_parse_merged_text` 在出現相同 `match.start()` 時以 dict 迭代順序作為 tie-breaker；爆擊傷害較具體，必須優先 | **正確性** |
 | 3 | `_fix_ocr_text` 內先 pair replace 再 regex fix | 既有 pipeline 假設；改動會破壞既有測試 | **正確性** |
-| 4 | `傷害%` pattern 的負後瞻 `(?<![擊擎時終])` 保留 | 既有 FP 防護，與 M1' 正交，移除會重新打開 `爆擊傷害 → 傷害` 的誤判路徑 | **正確性** |
+| 4 | `傷害%` pattern 的負後瞻 `(?<![擊擎時終])` 保留 | 既有 FP 防護，與 M3 regex 正交，移除會重新打開 `爆擊傷害 → 傷害` 的誤判路徑 | **正確性** |
 
 ## 4. Risks and Dependencies
 
 | # | 風險 | 影響 | 機率 | 緩解 |
 |---|------|------|:----:|------|
-| R1 | M1' 放寬後出現真實 damage-family FP | 錯判洗掉好潛能 | 低 | Section 8 kill criterion：首次觀察到 damage-family FP 立即升級 Option E 或補 scoped pair |
-| R2 | pair 順序寫錯導致 scoped pair 被 broad pair preempt | scoped pair 分支未被覆蓋；merged-path raw_text 變成 `爆擊害+9%` 使斷言 canonical raw_text 的測試失敗。**attribute/value 仍會由 M1' regex 正確命中**，非 hard correctness bug，但破壞測試覆蓋 | 中 | Section 3.4.5 Invariant 1；插入位置加 `# MUST come before 爆華 → 爆擊` 註解；`test_m3_scoped_pair_order_locked_via_merge_raw_text` 自動偵測 |
+| R1 | M3 regex 放寬後出現真實 damage-family FP | 錯判洗掉好潛能 | 低 | Section 8 kill criterion：首次觀察到 damage-family FP 立即升級 Option E 或補 scoped pair |
+| R2 | pair 順序寫錯導致 scoped pair 被 broad pair preempt | scoped pair 分支未被覆蓋；merged-path raw_text 變成 `爆擊害+9%` 使斷言 canonical raw_text 的測試失敗。**attribute/value 仍會由 M3 regex 正確命中**，非 hard correctness bug，但破壞測試覆蓋 | 中 | Section 3.4.5 Invariant 1；插入位置加 `# MUST come before 爆華 → 爆擊` 註解；`test_m3_scoped_pair_order_locked_via_merge_raw_text` 自動偵測 |
 | R3 | `TIT` / `JNT` 邊界 regex 在未預期文字抓到 | 污染其他屬性解析 | 低 | 保留 `(?<![A-Za-z0-9])...(?=[+:\uff1a\d])` 邊界斷言；test 覆蓋 `SITTING` 非屬性字串 |
-| R4 | M1' 放寬後，既有 238 個測試可能意外失敗 | 既有屬性誤判 | 低 | CI 必須全數通過才合併；precommit-fast gate |
+| R4 | M3 regex 放寬後，既有 238 個測試可能意外失敗 | 既有屬性誤判 | 低 | CI 必須全數通過才合併；precommit-fast gate |
 
 **依賴**：無外部相依變更。純 `app/core/condition.py` 內部修改，不影響 `ConditionChecker` 介面、preset 模式、或 UI 層。
 
@@ -257,21 +259,21 @@ _OCR_INT_FIXES = re.compile(
 
 | # | Input | 變異類型 | 解析路徑 | 對應 test |
 |:-:|-------|---------|---------|-----------|
-| 1 | `爆馨擊傷害+9%` | 插入 `馨` | scoped pair `爆馨擊→爆擊` → M1' | `test_m3_crit_damage_extra_xin` |
-| 2 | `爆草焦害+9%` | 擊→草 + 焦害→傷害 | existing pair + M1' | `test_ocr_fix_crit_damage_jiao_hai` |
-| 3 | `爆吉但害+9%` | 擊→吉 + 但害→傷害 | existing pair + M1' | `test_ocr_fix_crit_damage_bao_ji_dan_hai` |
-| 4 | `煜華僵害+9%` | 爆擊→煜華 + 僵害→傷害 | existing pair + M1' | `test_ocr_fix_crit_damage_yu_hua_jiang_hai` |
-| 5 | `爆華僵害+9%` | 擊→華 + 僵害→傷害 | existing pair + M1' | `test_ocr_fix_crit_damage_bao_hua_jiang_hai` |
-| 6 | `爆擎焦害+9%` | 擊→擎 + 焦害→傷害 | existing suffix pair + M1' 吸收 `擎` | `test_m3_crit_damage_baoqing_jiaohai` |
-| 7 | `爆擎悔害+9%` | 擊→擎 + 傷→悔 | suffix pair `悔害→傷害` + M1' | `test_m3_crit_damage_baoqing_huihai` |
-| 8 | `爆擎侮害+9%` | 擊→擎 + 傷→侮 | suffix pair `侮害→傷害` + M1' | `test_m3_crit_damage_baoqing_wuhai` |
+| 1 | `爆馨擊傷害+9%` | 插入 `馨` | scoped pair `爆馨擊→爆擊` → M3 regex | `test_m3_crit_damage_extra_xin` |
+| 2 | `爆草焦害+9%` | 擊→草 + 焦害→傷害 | existing pair + M3 regex | `test_ocr_fix_crit_damage_jiao_hai` |
+| 3 | `爆吉但害+9%` | 擊→吉 + 但害→傷害 | existing pair + M3 regex | `test_ocr_fix_crit_damage_bao_ji_dan_hai` |
+| 4 | `煜華僵害+9%` | 爆擊→煜華 + 僵害→傷害 | existing pair + M3 regex | `test_ocr_fix_crit_damage_yu_hua_jiang_hai` |
+| 5 | `爆華僵害+9%` | 擊→華 + 僵害→傷害 | existing pair + M3 regex | `test_ocr_fix_crit_damage_bao_hua_jiang_hai` |
+| 6 | `爆擎焦害+9%` | 擊→擎 + 焦害→傷害 | existing suffix pair + M3 regex 吸收 `擎` | `test_m3_crit_damage_baoqing_jiaohai` |
+| 7 | `爆擎悔害+9%` | 擊→擎 + 傷→悔 | suffix pair `悔害→傷害` + M3 regex | `test_m3_crit_damage_baoqing_huihai` |
+| 8 | `爆擎侮害+9%` | 擊→擎 + 傷→侮 | suffix pair `侮害→傷害` + M3 regex | `test_m3_crit_damage_baoqing_wuhai` |
 | 9 | `爆華傷喜+9%` | 擊→華 + 害→喜 | `爆華→爆擊` + `傷喜→傷害` | `test_m3_crit_damage_baohua_shangxi` |
-| 10 | `爆挛傷害+9%` | 擊→挛 | M1' 直接吸收 `挛` | `test_m3_crit_damage_baoluan_shanghai` |
-| 11 | `爆馨傷害+9%` | 擊→馨 | M1' 直接吸收 `馨` | `test_m3_crit_damage_baoxin_shanghai` |
-| 12 | `爆挛售害+9%` | 擊→挛 + 傷→售 | suffix pair `售害→傷害` + M1' | `test_m3_crit_damage_baoluan_shouhai` |
-| 13 | `爆撃焦害+9%` | 擊→撃（JP kanji）+ 焦害→傷害 | existing suffix + M1' 吸收 `撃` | `test_m3_crit_damage_jp_kanji_geki_jiaohai` |
-| 14 | `爆華恆喜+9%` | 擊→華 + 傷→恆 + 害→喜 | `爆華→爆擊` + M1' 吸收 `擊恆` + `[害喜]` 命中 `喜` | `test_m3_crit_damage_baohua_hengxi` |
-| 15 | `爆馨偏喜+9%` | 擊→馨 + 傷→偏 + 害→喜 | M1' 吸收 `馨偏` + `[害喜]` 命中 `喜` | `test_m3_crit_damage_baoxin_pianxi` |
+| 10 | `爆挛傷害+9%` | 擊→挛 | M3 regex 直接吸收 `挛` | `test_m3_crit_damage_baoluan_shanghai` |
+| 11 | `爆馨傷害+9%` | 擊→馨 | M3 regex 直接吸收 `馨` | `test_m3_crit_damage_baoxin_shanghai` |
+| 12 | `爆挛售害+9%` | 擊→挛 + 傷→售 | suffix pair `售害→傷害` + M3 regex | `test_m3_crit_damage_baoluan_shouhai` |
+| 13 | `爆撃焦害+9%` | 擊→撃（JP kanji）+ 焦害→傷害 | existing suffix + M3 regex 吸收 `撃` | `test_m3_crit_damage_jp_kanji_geki_jiaohai` |
+| 14 | `爆華恆喜+9%` | 擊→華 + 傷→恆 + 害→喜 | `爆華→爆擊` + M3 regex 吸收 `擊恆` + `[害喜]` 命中 `喜` | `test_m3_crit_damage_baohua_hengxi` |
+| 15 | `爆馨偏喜+9%` | 擊→馨 + 傷→偏 + 害→喜 | M3 regex 吸收 `馨偏` + `[害喜]` 命中 `喜` | `test_m3_crit_damage_baoxin_pianxi` |
 | 16 | `爆華害+9%` | 擊→華 + 傷 dropped | scoped pair `爆華害→爆擊傷害` | `test_m3_crit_damage_baohua_missing_shang` |
 | 17 | `爆挛害+9%` | 擊→挛 + 傷 dropped | scoped pair `爆挛害→爆擊傷害` | `test_m3_crit_damage_baoluan_missing_shang` |
 | 18 | `爆擎害+9%` | 擊→擎 + 傷 dropped | scoped pair `爆擎害→爆擊傷害` | `test_m3_crit_damage_baoqing_missing_shang` |
@@ -289,10 +291,10 @@ _OCR_INT_FIXES = re.compile(
 
 **既有屬性不可退化（真實遊戲文字）**
 
-| Input | 期望屬性 | 期望值 | 為何不會被 M1' 誤吞 |
+| Input | 期望屬性 | 期望值 | 為何不會被 M3 regex 誤吞 |
 |-------|---------|:----:|----------|
-| `攻擊Boss怪物時傷害+12%` | Boss傷害% | 12 | 無 `爆` 前綴，M1' 不搜尋 |
-| `爆擊機率+25%` | 爆擊機率% | 25 | 有 `爆` 但 `爆擊機率` 無 `害/喜`，M1' 不命中 |
+| `攻擊Boss怪物時傷害+12%` | Boss傷害% | 12 | 無 `爆` 前綴，M3 regex 不搜尋 |
+| `爆擊機率+25%` | 爆擊機率% | 25 | 有 `爆` 但 `爆擊機率` 無 `害/喜`，M3 regex 不命中 |
 | `最終傷害+15%` | 最終傷害% | 15 | 無 `爆` 前綴 |
 | `傷害+10%` | 傷害% | 10 | 無 `爆` 前綴 |
 | `SITTING: +10` | 未知 | 0 | `_OCR_INT_FIXES` 邊界斷言拒絕 `SITTING` 中的 `TIT` |
@@ -386,8 +388,39 @@ uv run pytest tests/test_condition.py -v
 
 此方法論規則應同步更新到 memory（`feedback_case_vs_inference.md`），延伸到所有 sd0x-dev-flow 可行性研究與 tech spec 的寫作準則。
 
+### 9.1 關於 "M3" 這個標籤（歷史脈絡）
+
+可行性研究 Section 6 原本把方案列為 M1 / M-prime / M2 / M3 / E 五個選項，其中：
+
+| 標籤 | 原始定義 |
+|---|---|
+| M1 | 開發同事原提案：`爆.{1,4}[害喜]`，完全無排除 |
+| M-prime | 我在 M1 上加排除字元集當「防禦保險」（可行性研究原文中以 prime 符號標記，此處改用 `M-prime` 避免與新標籤衝突） |
+| M2 | 只加 `_OCR_FIXES` pair，不動 regex |
+| M3 | M-prime + M2 組合（雙層防禦），**原本推薦的方案** |
+| E | 字元級混淆映射（長期重構） |
+
+**實際落地的代碼**經過本節的方法論校正後，**不再是原始定義的 M3**：
+
+| 項目 | 原 M3 | 實作版 |
+|---|---|---|
+| Regex | `爆[^時終率機傷]{1,3}\s*傷?[害喜]` | `爆.{1,3}\s*傷?[害喜]` |
+| 排除字元集 | 有（5 字元）| 無 |
+| Pair patches | 有（M2 全套 8 條）| 有（M2 全套 8 條） |
+| Defensive tests | 有（6 個針對排除字元）| 無 |
+
+嚴格定義下，這是「**簡化版 M1 + M2 pair patches**」，更接近最初的 M1 提案 + M2 pair 組合，而不是 M-prime + M2 的 M3。
+
+**為什麼保留 "M3" 標籤**：
+
+- Branch 名 (`feat/ocr-m3-crit-damage-regex`)、commit 訊息、PR #42 title 都已用 "M3"，改名代價高於收益
+- 此小節提供歷史脈絡，未來讀者遇到 "M3" 字樣時知道這是沿用的代號，不是字面定義
+- 可行性研究原文保留 M1 / M-prime / M2 / M3 / E 定義不變，供將來 kill criterion 觸發時參考升級路徑
+
+**教訓**：方案標籤在可行性研究階段是有用的比較工具，但**落地時最好重新命名為描述性名稱**（例如 `relaxed-crit-damage-regex`）以免方法論演進後名實不符。
+
 ---
 
 **Status**: Draft
-**Input**: [1-generalized-recognition.md](./0-feasibility-study/1-generalized-recognition.md) Option M3（方法論收斂後）
+**Input**: [1-generalized-recognition.md](./0-feasibility-study/1-generalized-recognition.md) Option M3（方法論收斂後實質為 M1+M2，見 Section 9.1）
 **Next**: `/feature-dev` → `/codex-review-fast` → `/codex-test-review` → `/precommit-fast`
