@@ -16,7 +16,10 @@ ATTRIBUTE_PATTERNS: dict[str, re.Pattern[str]] = {
     "MaxHP%": re.compile(r"MaxHP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "物理攻擊力%": re.compile(r"物理攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "魔法攻擊力%": re.compile(r"魔法攻擊力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
-    "爆擊傷害%": re.compile(r"爆.\s*傷害\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
+    # 爆擊傷害 泛化辨識：爆 + 1-3 任意字 + (可選 傷) + 害/喜 + 值
+    # 覆蓋 18 個真實 OCR 誤讀案例（爆華害/爆擎悔害/爆馨擊傷害/爆挛售害/爆華恆喜/爆馨偏喜/...）
+    # 不預先排除未觀察到的字元（per 「只收真實觀察」方法論），未來出現 FP 再局部補強
+    "爆擊傷害%": re.compile(r"爆.{1,3}\s*傷?[害喜]\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     # 紀錄用屬性（不參與條件判斷，但顯示在 log 中）
     "MaxMP%": re.compile(r"MaxMP\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
     "防禦力%": re.compile(r"防禦力\s*[:\uff1a]?\s*\+?\s*(\d+) ?%"),
@@ -98,7 +101,7 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("MaxMOP", "MaxMP"),
     ("MaxCP", "MaxMP"),
     ("uxHP", "MaxHP"),
-    # 傷害誤讀（傷 → 低/值/佩/集/優/信/但/亿/焦/氣/僵）
+    # 傷害誤讀（傷 → 低/值/佩/集/優/信/但/亿/焦/氣/僵/悔/侮/售）
     ("低害", "傷害"),
     ("值害", "傷害"),
     ("佩害", "傷害"),
@@ -110,6 +113,9 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("焦害", "傷害"),
     ("氣害", "傷害"),
     ("僵害", "傷害"),
+    ("悔害", "傷害"),
+    ("侮害", "傷害"),
+    ("售害", "傷害"),
     # 害 → 喜 誤讀
     ("傷喜", "傷害"),
     ("集喜", "傷害"),
@@ -120,15 +126,24 @@ _OCR_FIXES: list[tuple[str, str]] = [
     ("攻事", "攻擊"),
     # 爆擊誤讀（爆 → 爆華/爆草/爆吉/煬/煜華）
     ("煜華", "爆擊"),
+    # MUST come before 爆華 → 爆擊 — scoped pairs for 爆擊傷害 variants
+    # 若 broad pair 先觸發，爆華害 會被降階為 爆擊害，scoped 分支永不生效
+    # M1' regex 的 傷? optional 仍可命中 爆擊害，attribute/value 正確，但
+    # (a) merged-path raw_text 退化，(b) scoped 分支失去 regression 覆蓋
+    ("爆華害", "爆擊傷害"),   # 擊→華 + 傷 dropped
+    ("爆挛害", "爆擊傷害"),   # 擊→挛 + 傷 dropped
+    ("爆擎害", "爆擊傷害"),   # 擊→擎 + 傷 dropped
+    ("爆馨擊", "爆擊"),       # 爆馨擊傷害 → 爆擊傷害（多出 馨）
     ("爆華", "爆擊"),
     ("爆草", "爆擊"),
     ("爆吉", "爆擊"),
     ("煬擊", "爆擊"),
-    # LUK/DEX 誤讀
+    # LUK/DEX/INT 誤讀
     ("LIK", "LUK"),
     ("LJK", "LUK"),
     ("DIK", "DEX"),
     ("DT+", "DEX+"),
+    ("工T", "INT"),
     # 屬性誤讀（屬 → 屋/國/慶）
     ("全屋性", "全屬性"),
     ("全國性", "全屬性"),
@@ -147,12 +162,12 @@ _OCR_FIXES: list[tuple[str, str]] = [
 _OCR_AX_TO_MAX = re.compile(r"(?<![A-Za-z])ax(HP|MP)")
 # DEX 小寫誤讀（ex → DEX），前方不能有字母以避免誤匹配
 _OCR_LOWERCASE_EX = re.compile(r"(?<![a-zA-Z])ex(?=[+:\uff1a\d])")
-# DEX 誤讀（DET/DEI/DE/DEK/DEY → DEX），需邊界限制（含 CJK/數字/冒號）
-_OCR_DEX_FIXES = re.compile(r"(?<![A-Za-z0-9\u4e00-\u9fff:\uff1a])(?:DET|DEI|DEK|DEY|DE)(?=[+:\uff1a\d])")
+# DEX 誤讀（DET/DEI/DE/DEK/DEY/DX → DEX），需邊界限制（含 CJK/數字/冒號）
+_OCR_DEX_FIXES = re.compile(r"(?<![A-Za-z0-9\u4e00-\u9fff:\uff1a])(?:DET|DEI|DEK|DEY|DE|DX)(?=[+:\uff1a\d])")
 # STR 誤讀（STE → STR），需邊界限制避免 SYSTEM/STEP 等誤匹配
 _OCR_STE_TO_STR = re.compile(r"(?<![A-Za-z])STE(?=[+:\uff1a\d%])")
-# INT 誤讀（I↔1 混淆 + N↔T/M 混淆 + IHT/IMT/IINT），前方不能有字母數字以避免誤匹配
-_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:IINT|IHT|IMT|1NT|1IT|1TT|IIT|IT|IM)(?=[\+\d:\uff1a])")
+# INT 誤讀（I↔1 混淆 + N↔T/M 混淆 + IHT/IMT/IINT/JNT/TIT），前方不能有字母數字以避免誤匹配
+_OCR_INT_FIXES = re.compile(r"(?<![A-Za-z0-9])(?:IINT|IHT|IMT|1NT|1IT|1TT|IIT|IT|IM|JNT|TIT)(?=[\+\d:\uff1a])")
 _OCR_DIGIT_FIXES = re.compile(r"(?<=[+\-])B(?=%)")
 # OCR 有時在 % 後多讀到下一碎片的殘留數字（如 +6%6 → +6%）
 _TRAILING_AFTER_PERCENT = re.compile(r"(%)\d+$")
@@ -174,7 +189,7 @@ def _fix_ocr_text(text: str) -> str:
     text = _OCR_DEX_FIXES.sub("DEX", text)
     # STE → STR（R→E 誤讀，邊界限制）
     text = _OCR_STE_TO_STR.sub("STR", text)
-    # INT 誤讀修正（IINT/IHT/IMT/IT/1NT/1IT/1TT/IIT/IM → INT）
+    # INT 誤讀修正（IINT/IHT/IMT/IT/1NT/1IT/1TT/IIT/IM/JNT/TIT → INT）
     text = _OCR_INT_FIXES.sub("INT", text)
     # 數值位置的 B → 8（如 +B% → +8%）
     text = _OCR_DIGIT_FIXES.sub("8", text)
