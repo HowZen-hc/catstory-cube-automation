@@ -499,6 +499,152 @@ class TestParsePotentialLine:
         assert line.attribute == "INT%"
         assert line.value == 9
 
+    # --- M3: 泛化辨識（受限 M1' regex + scoped pairs）---
+    # tech-spec: docs/features/ocr-matching/2-tech-spec.md Section 6.1 / 6.2.2
+
+    # 6.1 A 組：傷 被替換（suffix pair 路徑）
+
+    def test_m3_crit_damage_baoqing_huihai(self):
+        """爆擎悔害 → 爆擊傷害（pair 悔害→傷害 + M1' regex）"""
+        line = parse_potential_line("爆擎悔害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoqing_wuhai(self):
+        """爆擎侮害 → 爆擊傷害（pair 侮害→傷害 + M1' regex）"""
+        line = parse_potential_line("爆擎侮害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoluan_shouhai(self):
+        """爆挛售害 → 爆擊傷害（pair 售害→傷害 + M1' regex）"""
+        line = parse_potential_line("爆挛售害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    # 6.1 B 組：傷 被吃掉（scoped pair 路徑）
+
+    def test_m3_crit_damage_baohua_missing_shang(self):
+        """爆華害 → 爆擊傷害（scoped pair 必須在 爆華→爆擊 之前）"""
+        line = parse_potential_line("爆華害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoluan_missing_shang(self):
+        """爆挛害 → 爆擊傷害（scoped pair）"""
+        line = parse_potential_line("爆挛害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoqing_missing_shang(self):
+        """爆擎害 → 爆擊傷害（scoped pair）"""
+        line = parse_potential_line("爆擎害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    # 6.1 C 組：多出字元
+
+    def test_m3_crit_damage_extra_xin(self):
+        """爆馨擊傷害 → 爆擊傷害（scoped pair 爆馨擊→爆擊）"""
+        line = parse_potential_line("爆馨擊傷害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    # 6.1 延伸：真實案例清單中 pair 未涵蓋、靠 M1' regex 直接吸收的變體
+
+    def test_m3_crit_damage_baoqing_jiaohai(self):
+        """爆擎焦害 → 爆擊傷害（焦害→傷害 pair + M1' regex，擎 非 pair 對象）"""
+        line = parse_potential_line("爆擎焦害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baohua_shangxi(self):
+        """爆華傷喜 → 爆擊傷害（爆華→爆擊 + 傷喜→傷害 既有 pair）"""
+        line = parse_potential_line("爆華傷喜+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoluan_shanghai(self):
+        """爆挛傷害 → 爆擊傷害（挛 非 pair 對象，完全靠 M1' regex 吸收）"""
+        line = parse_potential_line("爆挛傷害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoxin_shanghai(self):
+        """爆馨傷害 → 爆擊傷害（馨 非 pair 對象，完全靠 M1' regex 吸收）"""
+        line = parse_potential_line("爆馨傷害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_jp_kanji_geki_jiaohai(self):
+        """爆撃焦害 → 爆擊傷害（日文漢字 撃，無 pair，靠 M1' regex 吸收）
+
+        目前 _OCR_FIXES 只有 攻撃→攻擊，不包含一般的 撃→擊；M1' `.{1,3}`
+        直接吸收 撃 作為中段 1 字，與原爆擊傷害語意對齊。
+        """
+        line = parse_potential_line("爆撃焦害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baohua_hengxi(self):
+        """爆華恆喜 → 爆擊傷害（爆華→爆擊 + M1' 吸收 擊恆 作為中段 2 字，[害喜] 命中 喜）"""
+        line = parse_potential_line("爆華恆喜+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    def test_m3_crit_damage_baoxin_pianxi(self):
+        """爆馨偏喜 → 爆擊傷害（無 pair，M1' 吸收 馨偏 2 字 + 喜）"""
+        line = parse_potential_line("爆馨偏喜+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
+    # 6.1 D 組：英文屬性誤讀
+
+    def test_m3_dex_as_dx(self):
+        """DX → DEX（_OCR_DEX_FIXES 擴充）"""
+        line = parse_potential_line("DX+9%")
+        assert line.attribute == "DEX%"
+        assert line.value == 9
+
+    def test_m3_int_as_jnt(self):
+        """JNT → INT（_OCR_INT_FIXES 擴充，I→J）"""
+        line = parse_potential_line("JNT+9%")
+        assert line.attribute == "INT%"
+        assert line.value == 9
+
+    def test_m3_int_as_tit(self):
+        """TIT → INT（_OCR_INT_FIXES 擴充，IN→TI 錯位）"""
+        line = parse_potential_line("TIT+9%")
+        assert line.attribute == "INT%"
+        assert line.value == 9
+
+    def test_m3_int_as_gong_t(self):
+        """工T → INT（pair 工T→INT）"""
+        line = parse_potential_line("工T+9%")
+        assert line.attribute == "INT%"
+        assert line.value == 9
+
+    def test_m3_regex_boundary_middle_length_upper_reject(self):
+        """M1' 中段 {1,3} 上界：4 字元 middle 必須 reject
+
+        合成 adversarial input 驗證 regex 不會因 middle 加長而誤抓；
+        若 {1,3} 被改成 {1,4} 或無上界，此測試會失敗。
+        {1,3} 上界是為了限制 regex 比對範圍（避免 runaway 匹配跨越整行），
+        非針對特定字元，符合「只收真實觀察」方法論。
+        """
+        line = parse_potential_line("爆擎擎擎擎害+9%")
+        assert line.attribute == "未知"
+        assert line.value == 0
+
+    def test_m3_regex_boundary_middle_length_3_accept(self):
+        """M1' 中段 {1,3} 下界+上界正向測試：3 字元 middle 必須 accept
+
+        若 {1,3} 被改成 {1,2}，此測試會失敗。
+        """
+        line = parse_potential_line("爆擎擎擎害+9%")
+        assert line.attribute == "爆擊傷害%"
+        assert line.value == 9
+
 
 class TestParsePotentialLines:
     """碎片合併解析（使用 y 座標分群）"""
@@ -617,6 +763,66 @@ class TestParsePotentialLines:
         assert lines[1].value == 6
         # 第三行是補的「未知」
         assert lines[2].attribute == "未知"
+
+    # --- M3: 跨行合併路徑（6.2.3 + B/C 組 merge coverage）---
+
+    def test_m3_scoped_pair_blocks_cross_row_concat_case_a(self):
+        """Tech-spec 6.2.3 Case A：pair 層阻斷跨行合併路徑
+
+        兩行 售害+9% 與 售害+7% 各自被 suffix pair 拉回 傷害%，
+        合併條件 #1（兩行皆未知）不成立 → 不進入合併路徑 → 無機會觸發 M1'。
+        """
+        frags = self._three_rows("售害+9%", "售害+7%", "")
+        lines = parse_potential_lines(frags)
+        assert lines[0].attribute == "傷害%"
+        assert lines[0].value == 9
+        assert lines[1].attribute == "傷害%"
+        assert lines[1].value == 7
+
+    def test_m3_scoped_pair_order_locked_via_merge_raw_text(self):
+        """鎖住順序不變量：scoped 爆華害→爆擊傷害 **必須** 在 broad 爆華→爆擊 之前
+
+        parse_potential_lines 每行走 _parse_merged_text，後者將 raw_text 設為
+        regex 匹配後的 m.group(0)（_fix_ocr_text 正規化後）。
+
+        - 正確順序：scoped pair 先觸發 → `爆華害+9%` → `爆擊傷害+9%` → raw_text = '爆擊傷害+9%'
+        - 錯誤順序：broad pair 先觸發 → `爆華害+9%` → `爆擊害+9%` → M1' via 傷? 仍命中，
+          attribute/value 正確但 raw_text = '爆擊害+9%'
+
+        若有開發者把 scoped pair 移到 broad pair 之後，本測試的 raw_text 斷言會失敗。
+        """
+        lines = parse_potential_lines([("爆華害+9%", 10.0)], num_rows=3)
+        assert lines[0].attribute == "爆擊傷害%"
+        assert lines[0].value == 9
+        # Canonical raw_text — 若 scoped pair 被 broad pair preempt 則退化為 '爆擊害+9%'
+        assert lines[0].raw_text == "爆擊傷害+9%"
+
+    def test_m3_crit_damage_baohua_missing_merged(self):
+        """爆華害 在碎片合併路徑下仍命中 爆擊傷害（scoped pair 在合併前後都生效）"""
+        frags = self._same_row(["爆華害", "+9%"])
+        lines = parse_potential_lines(frags)
+        known = [ln for ln in lines if ln.attribute != "未知"]
+        assert len(known) == 1
+        assert known[0].attribute == "爆擊傷害%"
+        assert known[0].value == 9
+
+    def test_m3_crit_damage_extra_xin_merged(self):
+        """爆馨擊 + 傷害+9% 跨碎片合併後應命中 爆擊傷害"""
+        frags = self._same_row(["爆馨擊", "傷害+9%"])
+        lines = parse_potential_lines(frags)
+        known = [ln for ln in lines if ln.attribute != "未知"]
+        assert len(known) == 1
+        assert known[0].attribute == "爆擊傷害%"
+        assert known[0].value == 9
+
+    def test_m3_dx_merged_fragments(self):
+        """DX 與數值分拆為不同碎片時仍被修正為 DEX%"""
+        frags = self._same_row(["DX", "+9%"])
+        lines = parse_potential_lines(frags)
+        known = [ln for ln in lines if ln.attribute != "未知"]
+        assert len(known) == 1
+        assert known[0].attribute == "DEX%"
+        assert known[0].value == 9
 
 
 class TestConditionCheckerArmor250:
