@@ -42,7 +42,8 @@ class TestConfigSaveLoad:
         path = tmp_path / "partial.json"
         path.write_text('{"cube_type": "絕對附加方塊", "delay_ms": 1000}')
         config = AppConfig.load(path)
-        assert config.cube_type == "絕對附加方塊"
+        # FR-19: 無後綴自動遷移為有後綴
+        assert config.cube_type == "絕對附加方塊 (僅洗兩排)"
         assert config.delay_ms == 1000
         assert config.potential_region.is_set() is False
 
@@ -68,10 +69,11 @@ class TestConfigSaveLoad:
         assert loaded.custom_lines[2].min_value == 2
 
     def test_load_without_custom_lines(self, tmp_path: Path):
-        """舊設定檔沒有 custom_lines 欄位，載入時應使用預設值。"""
+        """舊設定檔沒有 custom_lines 欄位，載入時應使用預設值。cube_type 自動遷移。"""
         path = tmp_path / "old.json"
         path.write_text('{"cube_type": "絕對附加方塊"}')
         config = AppConfig.load(path)
+        assert config.cube_type == "絕對附加方塊 (僅洗兩排)"
         assert config.use_preset is True
         assert len(config.custom_lines) == 1
         assert config.custom_lines[0].attribute == "STR"
