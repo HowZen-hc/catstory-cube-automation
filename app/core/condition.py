@@ -1,8 +1,14 @@
 import re
+from dataclasses import dataclass
 from itertools import permutations
+from typing import Literal
 
 from app.models.config import AppConfig, LineCondition
 from app.models.potential import PotentialLine
+
+# ── 白名單 combo 型別 ──
+
+MatchKind = Literal["target", "all_stats", "crit3", "cooldown"]
 
 
 # OCR 文字 → 屬性名稱 + 數值
@@ -553,6 +559,31 @@ def _attr_to_ocr_key(attr: str) -> str:
     return mapping.get(attr, attr)
 
 
+def _classify_line(
+    line: PotentialLine,
+    target_key: str,
+    target_min: int,
+    all_stats_min: int | None,
+    accept_crit3: bool,
+    accept_cooldown: bool = False,
+    tolerance: int = 0,
+) -> MatchKind | None:
+    """分類單行潛能的 match 類型。回傳 None = 不合格。"""
+    # 目標屬性符合（含容錯）
+    if line.attribute == target_key and line.value + tolerance >= target_min:
+        return "target"
+    # 全屬性符合（含容錯）
+    if all_stats_min is not None and line.attribute == "全屬性%" and line.value + tolerance >= all_stats_min:
+        return "all_stats"
+    # 手套：爆擊傷害 3% 也算合格（不套用容錯）
+    if accept_crit3 and line.attribute == "爆擊傷害%" and line.value >= 3:
+        return "crit3"
+    # 帽子：技能冷卻時間 -1秒 也算合格（不套用容錯）
+    if accept_cooldown and line.attribute == "技能冷卻時間" and line.value >= 1:
+        return "cooldown"
+    return None
+
+
 def _check_line(
     line: PotentialLine,
     target_key: str,
@@ -562,20 +593,11 @@ def _check_line(
     accept_cooldown: bool = False,
     tolerance: int = 0,
 ) -> bool:
-    """檢查單行潛能是否合格。"""
-    # 目標屬性符合（含容錯）
-    if line.attribute == target_key and line.value + tolerance >= target_min:
-        return True
-    # 全屬性符合（含容錯）
-    if all_stats_min is not None and line.attribute == "全屬性%" and line.value + tolerance >= all_stats_min:
-        return True
-    # 手套：爆擊傷害 3% 也算合格（不套用容錯）
-    if accept_crit3 and line.attribute == "爆擊傷害%" and line.value >= 3:
-        return True
-    # 帽子：技能冷卻時間 -1秒 也算合格（不套用容錯）
-    if accept_cooldown and line.attribute == "技能冷卻時間" and line.value >= 1:
-        return True
-    return False
+    """檢查單行潛能是否合格（wrapper）。"""
+    return _classify_line(
+        line, target_key, target_min, all_stats_min,
+        accept_crit3, accept_cooldown, tolerance,
+    ) is not None
 
 
 def _run_preset_any_pos(
@@ -620,7 +642,15 @@ def _run_preset_any_pos(
     return False
 
 
-_TWO_LINE_CUBE_TYPES = {"絕對附加方塊", "絕對附加方塊 (僅洗兩排)"}
+_TWO_LINE_CUBE_TYPES = {"絕對附加方塊 (僅洗兩排)"}
+
+
+@dataclass(frozen=True)
+class _WhitelistCombo:
+    """絕對附加白名單的單一 combo 定義。"""
+    target_key: str   # OCR attribute key (e.g., "STR%", "全屬性%", "爆擊傷害%")
+    target_min: int   # S 潛門檻（或固定常數：爆擊=3, 冷卻=1）
+    tolerance: int    # (a)(b)(c) = _OCR_TOLERANCE; (d)(e) = 0
 
 
 def get_num_lines(cube_type: str) -> int:
@@ -717,7 +747,20 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     is_glove = equip in GLOVE_TYPES
     is_hat = equip in HAT_TYPES
 
-    # 所有屬性：列出所有可接受的屬性
+    # 絕對附加方塊：白名單 — 必須在所有屬性之前（與 check() dispatch 順序一致）
+    if num_lines == 2 and config.cube_type in _TWO_LINE_CUBE_TYPES:
+        # 所有屬性 + 絕對附加：列出所有主屬的白名單組合
+        if attr == "所有屬性":
+            return _generate_absolute_all_attrs_summary(resolved, is_glove, is_hat)
+        thresholds = THRESHOLD_TABLE.get(resolved, {}).get(attr)
+        if not thresholds:
+            return ["無法產生條件：裝備類型或屬性不正確"]
+        (s_val, _r_val), _all_stats_thresholds = thresholds
+        return _generate_absolute_summary(
+            resolved, is_glove, is_hat, attr, s_val,
+        )
+
+    # 所有屬性：列出所有可接受的屬性（非絕對附加）
     if attr == "所有屬性":
         return _generate_all_attrs_summary(resolved, is_glove, is_hat, num_lines)
 
@@ -731,7 +774,7 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     if equip == "萌獸":
         return [f"三排: {attr} ≥ {s_val}%"]
 
-    # 絕對附加方塊：兩排都是 S潛
+    # 非絕對附加的 2-line cube（預留）
     if num_lines == 2:
         parts = [f"  · {attr} {s_val}%"]
         if attr in _STATS_WITH_ALL_STATS and all_stats_thresholds:
@@ -745,6 +788,7 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
             return [f"兩排: {attr} {s_val}%"]
         return ["兩排需符合以下任一:"] + parts
 
+    # 3-line cube（珍貴/恢復）
     parts = [f"  · {attr} {s_val}% or {r_val}%"]
 
     # STR/DEX/INT/LUK 自動含全屬性
@@ -753,14 +797,83 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
         parts.append(f"  · 全屬性 {all_s}% or {all_r}%")
 
     if is_glove:
-        parts.append("  · 爆擊傷害 3%")
+        parts.append("  · 爆擊傷害（雙爆）")
 
     if is_hat:
-        parts.append("  · 技能冷卻時間 -1 秒")
+        parts.append("  · 技能冷卻時間 -1 秒 / -2 秒")
 
     if len(parts) == 1:
         return [f"每排: {attr} {s_val}% or {r_val}%"]
-    return ["每排需符合以下任一:"] + parts
+    result = ["每排需符合以下任一:"] + parts
+    result.append("  (支援 3S、雙 S)")
+    return result
+
+
+def _generate_absolute_summary(
+    resolved_equip: str,
+    is_glove: bool,
+    is_hat: bool,
+    target_attr: str,
+    s_val: int,
+) -> list[str]:
+    """絕對附加方塊白名單的條件摘要（FR-16）。"""
+    equip_thresholds = THRESHOLD_TABLE.get(resolved_equip, {})
+    parts: list[str] = []
+    added_keys: set[str] = set()
+
+    # (a) 目標屬性 × 2
+    label = "(同種主屬)" if target_attr in _STATS_WITH_ALL_STATS else ""
+    parts.append(f"  · {target_attr} {s_val}% × 2{f' {label}' if label else ''}")
+    added_keys.add(target_attr)
+
+    # (b) 全屬 × 2（避免與 target 重複）
+    all_entry = equip_thresholds.get("全屬性")
+    if all_entry and "全屬性" not in added_keys:
+        (all_s, _), _ = all_entry
+        parts.append(f"  · 全屬性 {all_s}% × 2")
+        added_keys.add("全屬性")
+
+    # (c) MaxHP × 2（避免與 target 重複）
+    hp_entry = equip_thresholds.get("MaxHP")
+    if hp_entry and "MaxHP" not in added_keys:
+        (hp_s, _), _ = hp_entry
+        parts.append(f"  · MaxHP {hp_s}% × 2")
+        added_keys.add("MaxHP")
+
+    # (d) 冷卻 × 2（帽子）
+    if is_hat:
+        parts.append("  · 技能冷卻時間 -1 秒 × 2")
+
+    # (e) 爆擊 × 2（手套）
+    if is_glove:
+        parts.append("  · 爆擊傷害 3% × 2")
+
+    return ["僅支援以下同種 × 2 組合:"] + parts
+
+
+def _generate_absolute_all_attrs_summary(
+    resolved_equip: str, is_glove: bool, is_hat: bool,
+) -> list[str]:
+    """絕對附加 + 所有屬性的白名單摘要。"""
+    equip_thresholds = THRESHOLD_TABLE.get(resolved_equip, {})
+    parts: list[str] = []
+    for attr in ("STR", "DEX", "INT", "LUK"):
+        if attr in equip_thresholds:
+            (s_val, _), _ = equip_thresholds[attr]
+            parts.append(f"  · {attr} {s_val}% × 2")
+    all_entry = equip_thresholds.get("全屬性")
+    if all_entry:
+        (all_s, _), _ = all_entry
+        parts.append(f"  · 全屬性 {all_s}% × 2")
+    hp_entry = equip_thresholds.get("MaxHP")
+    if hp_entry:
+        (hp_s, _), _ = hp_entry
+        parts.append(f"  · MaxHP {hp_s}% × 2")
+    if is_hat:
+        parts.append("  · 技能冷卻時間 -1 秒 × 2")
+    if is_glove:
+        parts.append("  · 爆擊傷害 3% × 2")
+    return ["僅支援以下同種 × 2 組合:"] + parts
 
 
 def _generate_all_attrs_summary(
@@ -835,6 +948,7 @@ class ConditionChecker:
 
         # 預設旗標：任何早退分支都不會讓後續屬性存取出錯
         self._is_attack_convertible = False
+        self._is_absolute_append = False
 
         # 萌獸雙終被：特殊條件
         self._is_雙終被 = equip == "萌獸" and attr == "雙終被"
@@ -844,6 +958,27 @@ class ConditionChecker:
 
         self._is_glove = equip in GLOVE_TYPES
         self._is_hat = equip in HAT_TYPES
+
+        # 絕對附加白名單：必須在所有屬性 early return 之前設定
+        # 用 attr != _ATTACK_CONVERTIBLE 而非 self._is_attack_convertible（此時尚未設定為最終值）
+        self._is_absolute_append = (
+            config.cube_type in _TWO_LINE_CUBE_TYPES
+            and attr != _ATTACK_CONVERTIBLE
+        )
+        if self._is_absolute_append:
+            # 防呆：target_attribute 必須是該裝備類型的合法選項
+            valid_attrs = EQUIPMENT_ATTRIBUTES.get(equip, [])
+            if attr not in valid_attrs:
+                self._valid = False
+                return
+            self._is_所有屬性 = attr == "所有屬性"
+            equip_thresholds = THRESHOLD_TABLE.get(resolved, {})
+            self._equip_thresholds = equip_thresholds
+            self._whitelist_combos = self._build_whitelist(
+                equip_thresholds, attr,
+            )
+            self._valid = bool(self._whitelist_combos)
+            return
 
         # 所有屬性：每行可以是任一有效屬性
         self._is_所有屬性 = attr == "所有屬性"
@@ -902,11 +1037,14 @@ class ConditionChecker:
         if self._is_雙終被:
             return self._check_雙終被(lines)
 
-        if self._is_所有屬性:
-            return self._check_所有屬性(lines)
-
         if self._is_attack_convertible:
             return self._check_attack_convertible(lines)
+
+        if self._is_absolute_append:
+            return self._check_absolute_append(lines)
+
+        if self._is_所有屬性:
+            return self._check_所有屬性(lines)
 
         return self._check_preset_any_pos(lines)
 
@@ -924,6 +1062,74 @@ class ConditionChecker:
             accept_cooldown=self._is_hat,
             tolerance=self._tolerance,
         )
+
+    # ── 絕對附加白名單 ──
+
+    def _build_whitelist(
+        self,
+        equip_thresholds: dict[str, tuple[tuple[int, int], tuple[int, int] | None]],
+        target_attr: str,
+    ) -> list[_WhitelistCombo]:
+        """依裝備等級建立白名單 combo list。"""
+        combos: list[_WhitelistCombo] = []
+        added_keys: set[str] = set()
+
+        if self._is_所有屬性:
+            attrs_to_check = [a for a in ("STR", "DEX", "INT", "LUK") if a in equip_thresholds]
+        elif target_attr in equip_thresholds:
+            attrs_to_check = [target_attr]
+        else:
+            attrs_to_check = []
+
+        for attr in attrs_to_check:
+            (s_val, _r_val), _all_stats = equip_thresholds[attr]
+            ocr_key = _attr_to_ocr_key(attr)
+            # (a) 同種主屬 × 2
+            combos.append(_WhitelistCombo(
+                target_key=ocr_key, target_min=s_val, tolerance=self._tolerance,
+            ))
+            added_keys.add(ocr_key)
+
+        # (b) 全屬 × 2（避免與 target 重複）
+        all_stats_entry = equip_thresholds.get("全屬性")
+        if all_stats_entry and "全屬性%" not in added_keys:
+            (all_s, _all_r), _ = all_stats_entry
+            combos.append(_WhitelistCombo(
+                target_key="全屬性%", target_min=all_s, tolerance=self._tolerance,
+            ))
+
+        # (c) MaxHP × 2（避免與 target 重複）
+        hp_entry = equip_thresholds.get("MaxHP")
+        if hp_entry and "MaxHP%" not in added_keys:
+            (hp_s, _hp_r), _ = hp_entry
+            combos.append(_WhitelistCombo(
+                target_key="MaxHP%", target_min=hp_s, tolerance=self._tolerance,
+            ))
+
+        # (d) 冷卻 × 2（僅帽子）— 不套用 tolerance
+        if self._is_hat:
+            combos.append(_WhitelistCombo(
+                target_key="技能冷卻時間", target_min=1, tolerance=0,
+            ))
+
+        # (e) 爆擊傷害 × 2（僅手套）— 不套用 tolerance
+        if self._is_glove:
+            combos.append(_WhitelistCombo(
+                target_key="爆擊傷害%", target_min=3, tolerance=0,
+            ))
+
+        return combos
+
+    def _check_absolute_append(self, lines: list[PotentialLine]) -> bool:
+        """絕對附加白名單：兩排必須命中同一 combo type（同 attribute name + 達門檻）。"""
+        l0, l1 = lines[0], lines[1]
+        for combo in self._whitelist_combos:
+            if (l0.attribute == combo.target_key
+                    and l0.value + combo.tolerance >= combo.target_min
+                    and l1.attribute == combo.target_key
+                    and l1.value + combo.tolerance >= combo.target_min):
+                return True
+        return False
 
     def _check_attack_convertible(self, lines: list[PotentialLine]) -> bool:
         """副手雙攻擊力（可轉換）：三排全物攻 或 三排全魔攻皆合格。

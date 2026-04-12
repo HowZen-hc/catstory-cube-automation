@@ -1284,7 +1284,7 @@ class TestConditionCheckerSubWeaponConvertible:
 
     def test_two_rows_pure_phys_pass(self):
         """C8：2 排方塊純物攻通過（兩排皆 S 門檻 12）。"""
-        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊 (僅洗兩排)"))
         lines = [
             PotentialLine("物理攻擊力%", 13),
             PotentialLine("物理攻擊力%", 12),
@@ -1293,7 +1293,7 @@ class TestConditionCheckerSubWeaponConvertible:
 
     def test_two_rows_pure_magic_pass(self):
         """C9：2 排方塊純魔攻通過。"""
-        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊 (僅洗兩排)"))
         lines = [
             PotentialLine("魔法攻擊力%", 12),
             PotentialLine("魔法攻擊力%", 12),
@@ -1302,7 +1302,7 @@ class TestConditionCheckerSubWeaponConvertible:
 
     def test_two_rows_mixed_reject(self):
         """C10：2 排方塊混合拒絕。"""
-        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊 (僅洗兩排)"))
         lines = [
             PotentialLine("物理攻擊力%", 13),
             PotentialLine("魔法攻擊力%", 12),
@@ -1311,7 +1311,7 @@ class TestConditionCheckerSubWeaponConvertible:
 
     def test_two_rows_phys_low_reject(self):
         """C10b：2 排方塊低於 S 門檻 12%（含容錯）拒絕。"""
-        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊"))
+        checker = ConditionChecker(self._make_config(cube_type="絕對附加方塊 (僅洗兩排)"))
         lines = [
             PotentialLine("物理攻擊力%", 13),
             PotentialLine("物理攻擊力%", 9),  # 9+2=11 < 12
@@ -1332,7 +1332,7 @@ class TestConditionCheckerSubWeaponConvertible:
 
     def test_summary_two_rows(self):
         """C12：2 排方塊摘要（S 門檻 12）— 逐項檢查。"""
-        config = self._make_config(cube_type="絕對附加方塊")
+        config = self._make_config(cube_type="絕對附加方塊 (僅洗兩排)")
         summary = generate_condition_summary(config)
         joined = "\n".join(summary)
         assert "兩排需同屬性" in joined
@@ -1489,6 +1489,50 @@ class TestConditionCheckerGlove:
             PotentialLine("全屬性%", 5),
         ]
         assert checker.check(lines) is False
+
+    # ── FR-2 lockdown: crit×N + main_attr×(3-N) ──
+
+    def test_glove_triple_crit_pass(self):
+        """FR-2 N=3: 3 排皆為爆擊傷害 3% → pass"""
+        config = AppConfig(
+            equipment_type="手套", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("爆擊傷害%", 3),
+        ]
+        assert checker.check(lines) is True
+
+    def test_glove_double_crit_plus_stat_pass(self):
+        """FR-2 N=2: 2 排爆擊 + 1 排主屬（非全屬）→ pass"""
+        config = AppConfig(
+            equipment_type="手套", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("STR%", 7),
+        ]
+        assert checker.check(lines) is True
+
+    def test_glove_crit_plus_double_all_stats_pass(self):
+        """FR-2 + FR-4: 1 排爆擊 + 2 排全屬性 → pass（全屬作為主屬）"""
+        config = AppConfig(
+            equipment_type="手套", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("全屬性%", 7),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
 
 
 class TestConditionCheckerMaxHP:
@@ -2114,6 +2158,50 @@ class TestConditionCheckerHat:
         ]
         assert checker.check(lines) is False
 
+    # ── FR-3 lockdown: cooldown×N + main_attr×(3-N) ──
+
+    def test_hat_triple_cooldown_pass(self):
+        """FR-3 N=3: 3 排皆為冷卻 -1 秒 → pass"""
+        config = AppConfig(
+            equipment_type="帽子", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("技能冷卻時間", 1),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_cooldown_plus_double_all_stats_pass(self):
+        """FR-3 + FR-4: 1 排冷卻 + 2 排全屬性 → pass（全屬作為主屬）"""
+        config = AppConfig(
+            equipment_type="帽子", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("全屬性%", 7),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
+    def test_hat_double_cooldown_plus_all_stats_pass(self):
+        """FR-3 + FR-4: 2 排冷卻 + 1 排全屬性 → pass"""
+        config = AppConfig(
+            equipment_type="帽子", is_eternal=True,
+            target_attribute="STR",
+        )
+        checker = ConditionChecker(config)
+        lines = [
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("技能冷卻時間", 1),
+            PotentialLine("全屬性%", 6),
+        ]
+        assert checker.check(lines) is True
+
 
 class TestConditionCheckerCustomSummary:
     """自訂模式條件摘要測試"""
@@ -2380,8 +2468,9 @@ class TestAbsoluteCubeTwoLines:
     """絕對附加方塊只洗 2 排潛能，且兩排都是 S潛等級。"""
 
     def test_get_num_lines_absolute(self):
-        assert get_num_lines("絕對附加方塊") == 2
         assert get_num_lines("絕對附加方塊 (僅洗兩排)") == 2
+        # 無後綴版本已移除 (FR-19)，不再識別為 2 排
+        assert get_num_lines("絕對附加方塊") == 3
 
     def test_get_num_lines_normal(self):
         assert get_num_lines("珍貴附加方塊 (粉紅色)") == 3
@@ -2400,7 +2489,7 @@ class TestAbsoluteCubeTwoLines:
     def test_preset_two_lines_pass(self):
         """兩排 S潛 STR 9% 通過。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2415,7 +2504,7 @@ class TestAbsoluteCubeTwoLines:
     def test_preset_two_lines_fail_below_s_tier(self):
         """6% 即使加容錯 2 也只有 8，仍低於 S潛 9%。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2427,10 +2516,10 @@ class TestAbsoluteCubeTwoLines:
         ]
         assert checker.check(lines) is False
 
-    def test_preset_two_lines_with_all_stats(self):
-        """S潛 STR 9% + S潛 全屬性 7% 通過。"""
+    def test_preset_two_lines_cross_type_str_all_stats_fail(self):
+        """FR-13: S潛 STR 9% + S潛 全屬性 7% 跨類型 → 白名單不接受。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2440,12 +2529,13 @@ class TestAbsoluteCubeTwoLines:
             PotentialLine("STR%", 9),
             PotentialLine("全屬性%", 7),
         ]
-        assert checker.check(lines) is True
+        # FR-13: 跨類型雙 S（STR + 全屬）→ 白名單不接受
+        assert checker.check(lines) is False
 
     def test_preset_two_lines_all_stats_below_s_fail(self):
         """全屬性 4%（加容錯 2 = 6，仍低於 S潛 7%）不通過。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2460,7 +2550,7 @@ class TestAbsoluteCubeTwoLines:
     def test_preset_two_lines_insufficient_lines(self):
         """只有 1 排不夠，不通過。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2472,7 +2562,7 @@ class TestAbsoluteCubeTwoLines:
     def test_all_attrs_two_lines(self):
         """所有屬性模式：兩排同屬性 S潛通過。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="所有屬性",
             use_preset=True,
@@ -2487,7 +2577,7 @@ class TestAbsoluteCubeTwoLines:
     def test_all_attrs_two_lines_below_s_fail(self):
         """所有屬性模式：6% + 容錯 2 = 8 < S潛 9%，不通過。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="所有屬性",
             use_preset=True,
@@ -2502,7 +2592,7 @@ class TestAbsoluteCubeTwoLines:
     def test_custom_and_two_lines(self):
         """自訂模式逐排指定 2 排。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             use_preset=False,
             custom_lines=[
@@ -2520,7 +2610,7 @@ class TestAbsoluteCubeTwoLines:
     def test_custom_or_two_lines(self):
         """自訂模式符合任一，2 排。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             use_preset=False,
             custom_lines=[
@@ -2538,7 +2628,7 @@ class TestAbsoluteCubeTwoLines:
     def test_custom_or_two_lines_fail(self):
         """自訂模式符合任一，2 排都不符合。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             use_preset=False,
             custom_lines=[
@@ -2554,46 +2644,54 @@ class TestAbsoluteCubeTwoLines:
         assert checker.check(lines) is False
 
     def test_summary_preset_single_attr(self):
-        """摘要：絕對附加方塊只顯示 S潛數值，不顯示 or。"""
+        """摘要：絕對附加方塊顯示白名單格式。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="主武器 / 徽章 (米特拉)",
             target_attribute="物理攻擊力",
             use_preset=True,
         )
         summary = generate_condition_summary(config)
-        assert summary == ["兩排: 物理攻擊力 13%"]
+        assert summary == [
+            "僅支援以下同種 × 2 組合:",
+            "  · 物理攻擊力 13% × 2",
+        ]
 
     def test_summary_preset_with_all_stats(self):
-        """摘要：絕對附加方塊 STR + 全屬性，不顯示 or。"""
+        """摘要：絕對附加方塊白名單含全屬性、MaxHP。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
         )
         summary = generate_condition_summary(config)
         assert summary == [
-            "兩排需符合以下任一:",
-            "  · STR 9%",
-            "  · 全屬性 7%",
+            "僅支援以下同種 × 2 組合:",
+            "  · STR 9% × 2 (同種主屬)",
+            "  · 全屬性 7% × 2",
+            "  · MaxHP 12% × 2",
         ]
 
     def test_summary_all_attrs(self):
-        """摘要：絕對附加方塊所有屬性模式標題為「兩排」。"""
+        """摘要：絕對附加 + 所有屬性 → 白名單格式（列出所有主屬 × 2）。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="所有屬性",
             use_preset=True,
         )
         summary = generate_condition_summary(config)
-        assert summary[0] == "兩排需為同一屬性 (可混搭全屬性):"
+        assert summary[0] == "僅支援以下同種 × 2 組合:"
+        text = "\n".join(summary)
+        assert "STR 9% × 2" in text
+        assert "全屬性 7% × 2" in text
+        assert "MaxHP 12% × 2" in text
 
     def test_tolerance_applies(self):
         """OCR 容錯 tolerance=2 套用在絕對附加方塊。"""
         config = AppConfig(
-            cube_type="絕對附加方塊",
+            cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
             target_attribute="STR",
             use_preset=True,
@@ -2604,4 +2702,229 @@ class TestAbsoluteCubeTwoLines:
             PotentialLine("STR%", 7),
             PotentialLine("STR%", 7),
         ]
+        assert checker.check(lines) is True
+
+    # ── FR-12.1 Whitelist pass cases ──
+
+    def test_whitelist_same_stat_eternal_str(self):
+        """FR-12.1(a) 永恆: STR 9% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("STR%", 9)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_same_stat_normal_str(self):
+        """FR-12.1(a) 一般裝備: STR 8% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 8), PotentialLine("STR%", 8)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_all_stats_eternal(self):
+        """FR-12.1(b) 永恆: 全屬性 7% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("全屬性%", 7), PotentialLine("全屬性%", 7)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_all_stats_normal(self):
+        """FR-12.1(b) 一般裝備: 全屬性 6% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("全屬性%", 6), PotentialLine("全屬性%", 6)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_hp_eternal(self):
+        """FR-12.1(c) 永恆: MaxHP 12% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="MaxHP",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("MaxHP%", 12), PotentialLine("MaxHP%", 12)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_hp_normal(self):
+        """FR-12.1(c) 一般裝備: MaxHP 11% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="MaxHP",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("MaxHP%", 11), PotentialLine("MaxHP%", 11)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_cooldown_hat(self):
+        """FR-12.1(d) 帽子: 冷卻 -1 × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="帽子", is_eternal=True,
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("技能冷卻時間", 1), PotentialLine("技能冷卻時間", 1)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_crit_glove(self):
+        """FR-12.1(e) 手套: 爆擊傷害 3% × 2 → pass"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="手套", is_eternal=True,
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("爆擊傷害%", 3), PotentialLine("爆擊傷害%", 3)]
+        assert checker.check(lines) is True
+
+    # ── FR-13 Whitelist FP (fail) cases ──
+
+    def test_whitelist_cross_type_str_all_stats_fail(self):
+        """FR-13: STR + 全屬 → 跨類型雙 S → fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("全屬性%", 7)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_cross_attr_str_dex_fail(self):
+        """FR-13 + Q3: STR + DEX → 跨屬性同數值 → fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("DEX%", 9)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_cross_type_str_hp_fail(self):
+        """FR-13: STR + MaxHP → 跨類型 → fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("MaxHP%", 12)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_cooldown_non_hat_fail(self):
+        """FR-14.1: 非帽子裝備 → 冷卻 combo 不進白名單"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("技能冷卻時間", 1), PotentialLine("技能冷卻時間", 1)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_crit_non_glove_fail(self):
+        """FR-14.1: 非手套裝備 → 爆擊 combo 不進白名單"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("爆擊傷害%", 3), PotentialLine("爆擊傷害%", 3)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_crit1_no_tolerance_fail(self):
+        """爆擊 1% + 1%（tolerance=0 不套用）→ fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="手套", is_eternal=True,
+            target_attribute="STR",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("爆擊傷害%", 1), PotentialLine("爆擊傷害%", 1)]
+        assert checker.check(lines) is False
+
+    # ── Absolute + 所有屬性 interaction ──
+
+    def test_whitelist_all_attrs_same_stat_pass(self):
+        """所有屬性 + 絕對附加: DEX 9% × 2 → pass（迴圈到 DEX 時命中白名單）"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="所有屬性",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("DEX%", 9), PotentialLine("DEX%", 9)]
+        assert checker.check(lines) is True
+
+    def test_whitelist_all_attrs_cross_stat_str_dex_fail(self):
+        """所有屬性 + 絕對附加: STR + DEX → 跨屬性 → fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="所有屬性",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("DEX%", 9)]
+        assert checker.check(lines) is False
+
+    def test_whitelist_all_attrs_cross_type_fail(self):
+        """所有屬性 + 絕對附加: STR + 全屬 → 跨類型 → fail"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="永恆 / 光輝",
+            target_attribute="所有屬性",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        lines = [PotentialLine("STR%", 9), PotentialLine("全屬性%", 7)]
+        assert checker.check(lines) is False
+
+    # ── Convertible + absolute precedence ──
+
+    def test_convertible_absolute_uses_convertible_path(self):
+        """副手可轉換 + 絕對附加 → 走 convertible path, 不走白名單"""
+        config = AppConfig(
+            cube_type="絕對附加方塊 (僅洗兩排)",
+            equipment_type="輔助武器 (副手)",
+            target_attribute="物理/魔法攻擊力 (可轉換)",
+            use_preset=True,
+        )
+        checker = ConditionChecker(config)
+        # 兩排物攻 = pass（convertible path accepts this）
+        lines = [PotentialLine("物理攻擊力%", 12), PotentialLine("物理攻擊力%", 12)]
         assert checker.check(lines) is True

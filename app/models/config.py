@@ -95,8 +95,13 @@ class AppConfig:
                 if new_eternal is not None:
                     is_eternal = new_eternal
 
+            # 方塊類型遷移：無後綴 → 有後綴 (FR-19)
+            cube_type = data.get("cube_type", "珍貴附加方塊 (粉紅色)")
+            if cube_type == "絕對附加方塊":
+                cube_type = "絕對附加方塊 (僅洗兩排)"
+
             return cls(
-                cube_type=data.get("cube_type", "珍貴附加方塊 (粉紅色)"),
+                cube_type=cube_type,
                 equipment_type=equip,
                 target_attribute=data.get("target_attribute", "STR"),
                 is_eternal=is_eternal,
