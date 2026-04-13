@@ -6,13 +6,6 @@ from PyQt6.QtWidgets import QApplication
 from app.gui.main_window import MainWindow
 
 
-@pytest.fixture(scope="module")
-def qapp():
-    """Provide a QApplication instance for GUI tests."""
-    app = QApplication.instance() or QApplication([])
-    yield app
-
-
 @pytest.fixture()
 def window(qapp):
     w = MainWindow()
