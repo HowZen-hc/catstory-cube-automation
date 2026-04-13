@@ -137,13 +137,13 @@ self._is_glove = equip in GLOVE_TYPES
 self._is_hat = equip in HAT_TYPES
 
 # AFTER — gated by equipment type to honor FR-3:
-_GEAR_EQUIP = {"永恆 / 光輝", "一般裝備 (神秘、漆黑、頂培)"}
-is_gear = equip in _GEAR_EQUIP
+GEAR_EQUIP_TYPES = {"永恆 / 光輝", "一般裝備 (神秘、漆黑、頂培)"}
+is_gear = equip in GEAR_EQUIP_TYPES
 self._is_glove = config.is_glove and is_gear
 self._is_hat = config.is_hat and is_gear
 ```
 
-**Rationale (FR-3)**: 若 `is_glove=True` 但 `equipment_type` 不在 `_GEAR_EQUIP`（例：誤用 / 手動 config），這兩個 flag 會透過 `_classify_line` (condition.py L579/L582) 讓爆擊 / 冷卻 成為合法 match — 對主武器 / 副手是錯誤語意。UI 層雖保證不會送進此組合（FR-7 checkbox 僅在 gear 顯示），但 core 必須 defence-in-depth 阻擋非法狀態。
+**Rationale (FR-3)**: 若 `is_glove=True` 但 `equipment_type` 不在 `GEAR_EQUIP_TYPES`（例：誤用 / 手動 config），這兩個 flag 會透過 `_classify_line` (condition.py L579/L582) 讓爆擊 / 冷卻 成為合法 match — 對主武器 / 副手是錯誤語意。UI 層雖保證不會送進此組合（FR-7 checkbox 僅在 gear 顯示），但 core 必須 defence-in-depth 阻擋非法狀態。
 
 **`_resolve_equip_type` removal**: 目前有 **2 處 caller**（condition.py:710 於 `generate_condition_summary`、condition.py:946 於 `ConditionChecker.__init__`）。收斂後 body 退化為 `return equip`，兩處直接 inline 為 `equip` / `config.equipment_type`；函式本身刪除。
 
@@ -170,7 +170,7 @@ generate_condition_summary(config):
   if equip == "萌獸" and attr == "雙終被": → special beast beam summary (unchanged)
   if attr == _ATTACK_CONVERTIBLE:   → _generate_sub_weapon_summary (see row S-SW below)
   num_lines = get_num_lines(cube_type)
-  is_gear = equip in _GEAR_EQUIP
+  is_gear = equip in GEAR_EQUIP_TYPES
   is_glove = config.is_glove and is_gear
   is_hat   = config.is_hat   and is_gear
   is_absolute = (num_lines == 2 and cube_type in _TWO_LINE_CUBE_TYPES)
