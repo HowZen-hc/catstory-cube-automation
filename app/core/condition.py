@@ -462,8 +462,6 @@ _STATS_WITH_ALL_STATS = {"STR", "DEX", "INT", "LUK"}
 GEAR_EQUIP_TYPES: frozenset[str] = frozenset(
     {"永恆 / 光輝", "一般裝備 (神秘、漆黑、頂培)"}
 )
-# 向後相容別名（本模組內使用）
-_GEAR_EQUIP = GEAR_EQUIP_TYPES
 
 # OCR 容錯值：防止 8→6、5↔6 等誤讀導致好結果被洗掉
 # 套用對象：主屬性、全屬性、HP、副手攻擊力
@@ -501,7 +499,7 @@ def get_custom_attributes(
     is_glove / is_hat 僅在 gear 裝備（永恆/光輝、一般裝備）時有意義；
     其他裝備類型會忽略兩個旗標（FR-3 縱深防禦）。
     """
-    is_gear = equipment_type in _GEAR_EQUIP
+    is_gear = equipment_type in GEAR_EQUIP_TYPES
     if is_gear and is_glove:
         return CUSTOM_SELECTABLE_ATTRIBUTES["gear_glove"]
     if is_gear and is_hat:
@@ -797,7 +795,7 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
         ]
 
     # FR-3 縱深防禦：is_glove / is_hat 僅在 gear 裝備上有意義
-    is_gear = equip in _GEAR_EQUIP
+    is_gear = equip in GEAR_EQUIP_TYPES
     is_glove = config.is_glove and is_gear
     is_hat = config.is_hat and is_gear
 
@@ -1006,7 +1004,7 @@ class ConditionChecker:
         # FR-3 縱深防禦：即使 config.is_glove / is_hat 為 True，
         # 若裝備類型不是 gear（永恆/光輝 或 一般裝備），強制忽略兩個旗標。
         # 防止手改 config 或未來 UI bug 造成主武器 / 副手 / 萌獸 的誤判。
-        is_gear = equip in _GEAR_EQUIP
+        is_gear = equip in GEAR_EQUIP_TYPES
         self._is_glove = config.is_glove and is_gear
         self._is_hat = config.is_hat and is_gear
 
