@@ -94,6 +94,10 @@ class AutomationWorker(QThread):
                 self.status_changed.emit("當前潛能已符合目標條件，無需洗方塊")
                 self.target_reached.emit(0)
                 return
+            # 將啟動 OCR 結果 seed 給策略，讓 CompareFlow 省下第 1 圈的 before OCR。
+            # 若 potential_region 未設定（走不到這個分支），CompareFlow 的 before/after 都會是 []，
+            # 快取維持 None，第 1 圈仍會呼叫 _read_potential（但同樣回傳 []），行為與優化前一致。
+            strategy.seed_initial_potential(lines)
 
         self.status_changed.emit("開始自動洗方塊...")
         roll_number = 0
