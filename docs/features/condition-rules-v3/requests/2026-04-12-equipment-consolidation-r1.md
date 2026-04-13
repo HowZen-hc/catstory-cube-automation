@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Candidate Complete
+> **Status**: Completed
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -39,7 +39,7 @@
 
 ## Acceptance Criteria
 
-- [x] AC-1: `EQUIPMENT_TYPES` 長度為 4（不含動態注入的「萌獸」）(FR-1, Signal 1.1)
+- [x] AC-1: `EQUIPMENT_TYPES` 含 4 項 gear/weapon 類型（永恆 / 光輝、一般裝備、主武器 / 徽章、輔助武器）+ 1 項萌獸；UI 顯示時透過 `[t for t in EQUIPMENT_TYPES if t != "萌獸"]` 過濾為 4 項 (FR-1, Signal 1.1)
 - [x] AC-2: `grep -n "GLOVE_TYPES\|HAT_TYPES\|ETERNAL_EQUIP_TYPES\|_resolve_equip_type\|is_eternal" app/core/condition.py app/models/config.py` 結果為 0 (FR-5, FR-6, NFR-2)
 - [x] AC-3: `grep -n '"手套"\|"帽子"' app/core/condition.py` 結果為 0 (NFR-2)
 - [x] AC-4: `AppConfig.__post_init__` 對 `is_glove=True` 且 `is_hat=True` 自動歸零並記 warning (Signal 3.4)
@@ -61,7 +61,7 @@
 | Analysis | Done | req-analyze + tech-spec |
 | Development | Done | Commit `4f9e62e` — schema + FR-3 defense |
 | Testing | Done | 305 tests pass (tests/test_condition.py + tests/test_config.py) |
-| Acceptance | Candidate | All AC heuristically checked; awaiting `--verify-ac` for closure-grade |
+| Acceptance | Done | `--verify-ac` Explore agent 驗證完畢：9/9 High confidence（AC-5 withdrawn） |
 
 ## References
 

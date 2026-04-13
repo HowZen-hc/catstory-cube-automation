@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Candidate Complete
+> **Status**: Completed
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -58,7 +58,7 @@
 | Analysis | Done | tech-spec §3.4.2 row catalog 共 18 rows |
 | Development | Done | Commit `1554ddc` — shorthand helpers + rewrite |
 | Testing | Done | 328 tests pass (new `TestSummaryShorthand` — 16 cases + 6 updated summary tests) |
-| Acceptance | Candidate | All AC heuristically checked; awaiting `--verify-ac` for closure-grade |
+| Acceptance | Done | `--verify-ac` Explore agent 驗證完畢：8/8 High confidence（`TestSummaryShorthand` 16 個 case 全綠對應 AC-1~AC-8） |
 
 ## References
 

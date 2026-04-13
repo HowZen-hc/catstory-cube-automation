@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Candidate Complete
+> **Status**: Completed
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -58,7 +58,7 @@ UI 層：移除 `eternal_check`，新增「手套」「帽子」兩個 mutually-
 | Analysis | Done | tech-spec §3.4.3, §3.4.4 |
 | Development | Done | Commit `0bfa90d` — glove/hat checkbox + sub-weapon reduction |
 | Testing | Done | 312 tests pass (new `TestSubWeaponAttributesR2` + `TestGetCustomAttributesSubtype`) |
-| Acceptance | Candidate | Manual UI visual AC-1/AC-2/AC-6 deferred to user; all core-facing AC heuristically checked |
+| Acceptance | Done | `--verify-ac` Explore agent 驗證完畢：9/9 High confidence（包含 UI visibility/mutex/tooltip/blockSignals 邏輯皆由 source 驗證） |
 
 ## References
 
