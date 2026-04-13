@@ -2,10 +2,13 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Candidate Complete
+> **Status**: Superseded
+> **Superseded By**: [condition-rules-v3 R1 — Equipment Consolidation](../../condition-rules-v3/requests/2026-04-12-equipment-consolidation-r1.md)
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
+
+> **Supersede note**: v2 的手套 / 帽子 equipment type 已於 v3 合併為 `是 gear + is_glove`/`is_hat` flag。本 ticket 的 FR-1..5（手套 / 帽子 preset coverage）在 v3 schema 下由 `ConditionChecker._is_glove`/`_is_hat` 配合 FR-3 縱深防禦實現，語意等價。FR-11..14.1（絕對附加白名單）與 FR-19（cube type cleanup）已於 PR #43 落地並持續在 v3 中維持。字面 AC 措辭與現行 schema 不對齊，故標記為 Superseded 而非 Completed。
 
 ## Background
 

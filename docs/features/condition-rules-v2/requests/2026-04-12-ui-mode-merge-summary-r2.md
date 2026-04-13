@@ -2,11 +2,14 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Candidate Complete
+> **Status**: Superseded
+> **Superseded By**: [condition-rules-v3 R2 — Subtype Checkbox UI](../../condition-rules-v3/requests/2026-04-12-subtype-checkbox-ui-r2.md) and [R3 — Summary Shorthand](../../condition-rules-v3/requests/2026-04-12-summary-shorthand-r3.md)
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
 > **Depends On**: [R1 — Core Preset + Whitelist + Cleanup](./2026-04-12-core-preset-whitelist-cleanup-r1.md)
+
+> **Supersede note**: custom mode merge（AND + OR → 單一 CUSTOM）與 summary 差異化已於 PR #43 落地；後續 v3 R2 將手套/帽子 equipment type 改為 flag、v3 R3 全面改寫 summary 為社群簡寫（「雙爆」「-2 冷卻」等由 R3 helpers 生成）。原 AC 措辭（依 cube_type + equip_type 差異化）在 v3 schema 下改由 `is_glove`/`is_hat` flag 路由，語意等價但字面不對齊，故標記為 Superseded。
 
 ## Background
 
