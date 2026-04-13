@@ -60,6 +60,13 @@ class MainWindow(QMainWindow):
         central = QWidget()
         layout = QVBoxLayout()
 
+        # 解析度提示（FR-28）
+        self.resolution_hint = QLabel(
+            "建議採用解析度 1920 x 1080 辨識上會比較精準"
+        )
+        self.resolution_hint.setStyleSheet("color: gray; font-size: 12px;")
+        layout.addWidget(self.resolution_hint)
+
         # 設定面板
         self.settings_panel = SettingsPanel()
         self.settings_panel.select_potential_region.connect(
@@ -113,11 +120,22 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.status_bar.showMessage("就緒")
 
-        # 檢查更新按鈕（狀態列右側）
+        # 檢查更新按鈕（狀態列右側） — FR-27：明顯按鈕樣式
         self._update_worker: _UpdateCheckWorker | None = None
         self.btn_check_update = QPushButton(f"v{__version__} — 檢查更新")
-        self.btn_check_update.setFlat(True)
-        self.btn_check_update.setStyleSheet("color: #666; padding: 0 8px;")
+        self.btn_check_update.setFlat(False)
+        self.btn_check_update.setStyleSheet(
+            "QPushButton {"
+            " background-color: #2196F3;"
+            " color: white;"
+            " border: 1px solid #1976D2;"
+            " border-radius: 4px;"
+            " padding: 2px 10px;"
+            "}"
+            "QPushButton:hover { background-color: #1976D2; }"
+            "QPushButton:pressed { background-color: #0D47A1; }"
+            "QPushButton:disabled { background-color: #B0BEC5; color: #ECEFF1; }"
+        )
         self.btn_check_update.clicked.connect(self._on_check_update)
         self.status_bar.addPermanentWidget(self.btn_check_update)
 
@@ -146,9 +164,7 @@ class MainWindow(QMainWindow):
         )
 
     def _load_config_to_ui(self) -> None:
-        # 只載入持久性設定（區域、延遲），下拉選單保持 UI 預設值
-        self.settings_panel.load_persistent_from_config(self.config)
-        # 用 UI 預設的方塊類型觸發萌獸連動
+        # 用 UI 預設的方塊類型觸發萌獸連動；其他設定沿用 UI 預設值
         self.condition_editor.on_cube_type_changed(
             self.settings_panel.cube_type_combo.currentText()
         )
