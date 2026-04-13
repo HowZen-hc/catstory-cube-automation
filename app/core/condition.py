@@ -764,9 +764,9 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     # 3-line 珍貴 / 恢復方塊 — Phase 2 結構性簡述
     # 子類別 checkbox 覆蓋 target 文案（FR-19 / FR-20）
     if is_glove:
-        return ["必須符合一排為爆擊傷害 3%，支援雙爆、3S、雙 S"]
+        return ['三排潛能中至少一排為"爆擊傷害 +3%"，支援雙爆、3S、雙 S']
     if is_hat:
-        return ["必須符合一排為技能冷卻時間 -1 秒，支援 -2 冷卻、3S、雙 S"]
+        return ['三排潛能中至少一排為"技能冷卻時間 -1 秒"，支援 -2 冷卻、3S、雙 S']
 
     # 主武器 / 徽章：依目標物 / 魔分流（FR-21）
     if equip == "主武器 / 徽章 (米特拉)" and num_lines == 3:

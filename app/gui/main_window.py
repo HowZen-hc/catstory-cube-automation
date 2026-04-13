@@ -64,7 +64,8 @@ class MainWindow(QMainWindow):
         self.resolution_hint = QLabel(
             "建議採用解析度 1920 x 1080 辨識上會比較精準"
         )
-        self.resolution_hint.setStyleSheet("color: gray; font-size: 12px;")
+        # 顏色介於灰色 (delay_hint) 與橙色 (anim_hint) 之間：資訊提示而非警告
+        self.resolution_hint.setStyleSheet("color: #1976d2; font-size: 12px;")
         layout.addWidget(self.resolution_hint)
 
         # 設定面板

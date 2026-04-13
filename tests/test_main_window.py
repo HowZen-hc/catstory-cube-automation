@@ -105,8 +105,12 @@ class TestResolutionHint:
         assert "1920" in text
         assert "1080" in text
 
-    def test_resolution_hint_uses_gray_hint_style(self, window):
-        """對照 settings_panel 的 delay_hint 樣式（gray、12px）。"""
-        qss = window.resolution_hint.styleSheet()
-        assert "gray" in qss
+    def test_resolution_hint_uses_info_blue_hint_style(self, window):
+        """資訊色藍（#1976d2）+ 12px：比 gray delay_hint 顯眼，
+        但仍低於 red region_hint / orange anim_hint 的警告等級。"""
+        qss = window.resolution_hint.styleSheet().lower()
+        assert "#1976d2" in qss
         assert "12px" in qss
+        # 警告色保留給其他 hint，不能用於解析度提示
+        assert "red" not in qss
+        assert "#e65100" not in qss

@@ -366,9 +366,10 @@ class ConditionEditor(QGroupBox):
             self.attr_combo.setMinimumWidth(_SUB_WEAPON_ATTR_WIDTH)
         else:
             self.attr_combo.setMinimumWidth(_DEFAULT_ATTR_WIDTH)
-        # 切換到非 gear 裝備時清空 subtype 旗標（避免跨裝備殘留）
-        if equip_type not in GEAR_EQUIP_TYPES:
-            self._reset_subtype_checks()
+        # 切換裝備類型一律清空 subtype 旗標：
+        # 即使 gear ↔ gear（例：永恆 / 光輝 ↔ 一般裝備）切換也強制重選，
+        # 避免殘留狀態造成用戶誤以為還在原本的子類別配置
+        self._reset_subtype_checks()
         self._update_subtype_visibility()
         self._on_attr_changed(self.attr_combo.currentText())
         # 切換裝備類型時：比對模式回預設 + 自訂排重建

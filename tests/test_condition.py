@@ -2251,7 +2251,7 @@ class TestConditionCheckerHat:
         )
         lines = generate_condition_summary(config)
         assert lines == [
-            "必須符合一排為技能冷卻時間 -1 秒，支援 -2 冷卻、3S、雙 S",
+            '三排潛能中至少一排為"技能冷卻時間 -1 秒"，支援 -2 冷卻、3S、雙 S',
         ]
 
     def test_non_hat_no_cooldown(self):
@@ -2407,7 +2407,7 @@ class TestSummaryShorthand:
             is_glove=True,
         )
         assert generate_condition_summary(config) == [
-            "必須符合一排為爆擊傷害 3%，支援雙爆、3S、雙 S",
+            '三排潛能中至少一排為"爆擊傷害 +3%"，支援雙爆、3S、雙 S',
         ]
 
     def test_row_3_g_hat_overrides_target(self):
@@ -2419,7 +2419,7 @@ class TestSummaryShorthand:
             is_hat=True,
         )
         assert generate_condition_summary(config) == [
-            "必須符合一排為技能冷卻時間 -1 秒，支援 -2 冷卻、3S、雙 S",
+            '三排潛能中至少一排為"技能冷卻時間 -1 秒"，支援 -2 冷卻、3S、雙 S',
         ]
 
     # ── AC-4 (Signal 5.6, Row 3-W-PHYS / 3-W-MAG) ──

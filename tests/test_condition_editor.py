@@ -142,6 +142,34 @@ class TestApplyLoadRoundtrip:
         assert editor.hat_check.isEnabled() is False
         assert editor.glove_check.isEnabled() is True
 
+    def test_preset_with_glove_survives_roundtrip_when_load_switches_gear_equip(self, editor):
+        """Regression: `_on_equip_changed` now unconditionally clears glove/hat
+        on any equip switch. `load_from_config` restores flags via
+        `_sync_subtype_checks` *after* the equip change signal fires, so a saved
+        (equip=一般裝備, is_glove=True) config must still round-trip correctly
+        even though editor default equip is 永恆 / 光輝 (switch fires signal)."""
+        src = AppConfig(
+            cube_type=_DEFAULT_CUBE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="STR",
+            is_glove=True,
+            is_hat=False,
+            use_preset=True,
+        )
+
+        editor.on_cube_type_changed(src.cube_type)
+        # sanity: default equip differs from src so load triggers _on_equip_changed
+        assert editor.equip_combo.currentText() != src.equipment_type
+        editor.load_from_config(src)
+        dst = AppConfig()
+        editor.apply_to_config(dst)
+
+        assert dst.equipment_type == src.equipment_type
+        assert dst.is_glove is True
+        assert dst.is_hat is False
+        assert editor.glove_check.isChecked() is True
+        assert editor.hat_check.isEnabled() is False
+
     def test_empty_custom_lines_creates_default_row(self, editor):
         src = AppConfig(
             cube_type=_DEFAULT_CUBE,
@@ -203,6 +231,9 @@ class TestSyncSubtypeChecks:
         summary_spy.assert_not_called()
 
 
+_GEAR_EQUIP_ALT = "一般裝備 (神秘、漆黑、頂培)"
+
+
 class TestResetSubtypeChecks:
     def test_switching_to_non_gear_clears_and_reenables_both(self, editor):
         editor.equip_combo.setCurrentText(_GEAR_EQUIP)
@@ -210,6 +241,20 @@ class TestResetSubtypeChecks:
         assert editor.hat_check.isEnabled() is False
 
         editor.equip_combo.setCurrentText(_NON_GEAR_EQUIP)
+
+        assert editor.glove_check.isChecked() is False
+        assert editor.hat_check.isChecked() is False
+        assert editor.glove_check.isEnabled() is True
+        assert editor.hat_check.isEnabled() is True
+
+    def test_switching_between_gear_equips_also_clears(self, editor):
+        """Regression: gear ↔ gear 切換（永恆 / 光輝 ↔ 一般裝備）也必須清空
+        glove / hat 勾選狀態，避免殘留造成用戶誤以為配置仍存在。"""
+        editor.equip_combo.setCurrentText(_GEAR_EQUIP)
+        editor.glove_check.setChecked(True)
+        assert editor.glove_check.isChecked() is True
+
+        editor.equip_combo.setCurrentText(_GEAR_EQUIP_ALT)
 
         assert editor.glove_check.isChecked() is False
         assert editor.hat_check.isChecked() is False

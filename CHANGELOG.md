@@ -12,7 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 - feat: condition-rules-v2 — absolute additional whitelist, custom mode merge, differentiated summary per cube type
 - feat: condition-rules-v3 — gear equipment type consolidation (6 → 4 types), `is_glove` / `is_hat` mutually-exclusive flags replacing `is_eternal`, FR-3 defense-in-depth gating so subtype flags only apply to gear
-- feat: condition-rules-v3 Phase 2 — precise verbatim summary strings for preset and absolute-additional cubes (`支援 力 / 敏 / 智 / 幸、全屬、HP，包含 3S、雙 S 及全屬混搭`, `僅支援 99 四屬、77全、12 12 HP`, `支援 -1 -1 冷卻，也接受 77 全 冷卻；若洗到主屬會直接洗掉`, etc.)
+- feat: condition-rules-v3 Phase 2 — precise verbatim summary strings for preset and absolute-additional cubes (`支援 力 / 敏 / 智 / 幸、全屬、HP，包含 3S、雙 S 及全屬混搭`, `三排潛能中至少一排為"爆擊傷害 +3%"，支援雙爆、3S、雙 S`, `僅支援 99 四屬、77全、12 12 HP`, `支援 -1 -1 冷卻，也接受 77 全 冷卻；若洗到主屬會直接洗掉`, etc.)
 - feat: 1920 × 1080 resolution hint label on main window for OCR accuracy guidance
 - feat: sub-weapon physical / magic convertible preset option with widened 260px attribute combo
 - feat: generalized crit damage OCR regex for observed M3 variants
@@ -29,6 +29,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 - UI: 檢查更新 button restyled with Material Blue QSS (hover / pressed / disabled pseudo-states) so it is visually distinguishable as a button
 - UI: checkbox label renamed 帽子 → 冷卻帽 to clarify the "roll a cooldown hat" scope (internal `is_hat` flag unchanged)
+- UI: switching equipment type (including gear ↔ gear, e.g. 永恆 / 光輝 ↔ 一般裝備) now clears the glove / cooldown-hat checkbox state, forcing deliberate re-selection instead of silently inheriting stale flags
 - condition rules: summary text adopts community shorthand notation (99 力 / 77 全 / 12 12 HP / 33 爆 / -1 -1 冷卻)
 - sub-weapon: target attribute dropdown simplified to a single "物理/魔法攻擊力 (可轉換)" option
 - refactor: unify preset dispatch via `_run_preset_any_pos` helper
