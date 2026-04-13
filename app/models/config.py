@@ -40,7 +40,8 @@ class AppConfig:
     cube_type: str = "珍貴附加方塊 (粉紅色)"
     equipment_type: str = "永恆 / 光輝"
     target_attribute: str = "STR"
-    is_eternal: bool = True  # 手套/帽子是否為永恆裝備
+    is_glove: bool = False  # 勾選後：至少 1 排必須為爆擊傷害 3%（絕對附加須 2 排）
+    is_hat: bool = False    # 勾選後：至少 1 排必須為冷卻 -1 秒（絕對附加須 2 排）
     potential_region: Region = field(default_factory=Region)
     delay_ms: int = 1500
     ocr_engine: str = "paddle"
@@ -49,6 +50,15 @@ class AppConfig:
     custom_lines: list[LineCondition] = field(
         default_factory=lambda: [LineCondition()]
     )
+
+    def __post_init__(self) -> None:
+        """驗證互斥條件：is_glove 與 is_hat 不得同時為 True。"""
+        if self.is_glove and self.is_hat:
+            logger.warning(
+                "is_glove and is_hat cannot both be True; resetting to False"
+            )
+            self.is_glove = False
+            self.is_hat = False
 
     def save(self, path: Path = CONFIG_PATH) -> None:
         """儲存設定到 JSON 檔案。"""
@@ -77,25 +87,31 @@ class AppConfig:
                     custom_lines.append(LineCondition(**item))
             else:
                 custom_lines = [LineCondition()]
-            # 舊設定遷移
+
+            # 舊設定遷移（保留非手套 / 帽子的歷史 key）
             equip = data.get("equipment_type", "永恆 / 光輝")
-            is_eternal = data.get("is_eternal", True)
+            # 防呆：equipment_type 必須是字串；異常值 fallback 預設
+            if not isinstance(equip, str):
+                equip = "永恆 / 光輝"
             _OLD_EQUIP_MIGRATION = {
-                "手套 (永恆)": ("手套", True),
-                "手套 (非永恆)": ("手套", False),
-                "帽子 (永恆)": ("帽子", True),
-                "帽子 (非永恆)": ("帽子", False),
-                "永恆裝備·光輝套裝": ("永恆 / 光輝", None),
-                "主武器": ("主武器 / 徽章 (米特拉)", None),
-                "徽章 (米特拉)": ("主武器 / 徽章 (米特拉)", None),
+                "永恆裝備·光輝套裝": "永恆 / 光輝",
+                "主武器": "主武器 / 徽章 (米特拉)",
+                "徽章 (米特拉)": "主武器 / 徽章 (米特拉)",
             }
             if equip in _OLD_EQUIP_MIGRATION:
-                new_equip, new_eternal = _OLD_EQUIP_MIGRATION[equip]
-                equip = new_equip
-                if new_eternal is not None:
-                    is_eternal = new_eternal
+                equip = _OLD_EQUIP_MIGRATION[equip]
 
-            # 方塊類型遷移：無後綴 → 有後綴 (FR-19)
+            # v3 防呆（Signal 3.3, FR-11）：舊 "手套" / "帽子" / "手套 (永恆)" 等
+            # 不再是合法 equipment_type；fallback 為預設值並 log（不 crash）
+            if equip in {"手套", "帽子"} or equip.startswith(("手套 (", "帽子 (")):
+                logger.warning(
+                    "Legacy equipment_type '%s' is no longer valid; "
+                    "fallback to '永恆 / 光輝'. User should reconfigure.",
+                    equip,
+                )
+                equip = "永恆 / 光輝"
+
+            # 方塊類型遷移：無後綴 → 有後綴
             cube_type = data.get("cube_type", "珍貴附加方塊 (粉紅色)")
             if cube_type == "絕對附加方塊":
                 cube_type = "絕對附加方塊 (僅洗兩排)"
@@ -104,7 +120,8 @@ class AppConfig:
                 cube_type=cube_type,
                 equipment_type=equip,
                 target_attribute=data.get("target_attribute", "STR"),
-                is_eternal=is_eternal,
+                is_glove=bool(data.get("is_glove", False)),
+                is_hat=bool(data.get("is_hat", False)),
                 potential_region=Region(**data.get("potential_region", {})),
                 delay_ms=data.get("delay_ms", 1500),
                 ocr_engine=data.get("ocr_engine", "paddle"),

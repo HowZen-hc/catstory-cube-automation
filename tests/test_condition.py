@@ -1047,7 +1047,7 @@ class TestConditionCheckerAllAttributes:
 
     def test_glove_with_crit(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="所有屬性",
         )
         checker = ConditionChecker(config)
@@ -1060,7 +1060,7 @@ class TestConditionCheckerAllAttributes:
 
     def test_hat_with_cooldown(self):
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="所有屬性",
         )
         checker = ConditionChecker(config)
@@ -1392,7 +1392,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_pass(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
 
         )
@@ -1406,7 +1406,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_250_double_s(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
 
         )
@@ -1420,7 +1420,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_crit1_rejected(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
 
         )
@@ -1435,7 +1435,7 @@ class TestConditionCheckerGlove:
     def test_glove_line1_attr_line2_crit(self):
         """第1行屬性、第2行爆傷也保留"""
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
 
         )
@@ -1450,7 +1450,7 @@ class TestConditionCheckerGlove:
     def test_glove_all_attr_no_crit(self):
         """手套三行都是屬性也合格"""
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
 
         )
@@ -1464,7 +1464,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=False,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)", is_glove=True,
             target_attribute="LUK",
 
         )
@@ -1478,7 +1478,7 @@ class TestConditionCheckerGlove:
 
     def test_glove_sub250_fail(self):
         config = AppConfig(
-            equipment_type="手套", is_eternal=False,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)", is_glove=True,
             target_attribute="LUK",
 
         )
@@ -1495,7 +1495,7 @@ class TestConditionCheckerGlove:
     def test_glove_triple_crit_pass(self):
         """FR-2 N=3: 3 排皆為爆擊傷害 3% → pass"""
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -1509,7 +1509,7 @@ class TestConditionCheckerGlove:
     def test_glove_double_crit_plus_stat_pass(self):
         """FR-2 N=2: 2 排爆擊 + 1 排主屬（非全屬）→ pass"""
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -1523,7 +1523,7 @@ class TestConditionCheckerGlove:
     def test_glove_crit_plus_double_all_stats_pass(self):
         """FR-2 + FR-4: 1 排爆擊 + 2 排全屬性 → pass（全屬作為主屬）"""
         config = AppConfig(
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -1533,6 +1533,56 @@ class TestConditionCheckerGlove:
             PotentialLine("全屬性%", 6),
         ]
         assert checker.check(lines) is True
+
+    # ── v3 R1 AC-6/AC-7: FR-3 縱深防禦 + 行為等價 ──
+
+    def test_is_glove_ignored_on_main_weapon(self):
+        """FR-3 / AC-6: 主武器 + is_glove=True → _is_glove 必為 False;
+        爆擊 3% 不得因旗標洩漏而被誤判合法。
+        """
+        config = AppConfig(
+            equipment_type="主武器 / 徽章 (米特拉)",
+            target_attribute="物理攻擊力",
+            is_glove=True,  # 不合法組合（UI 擋得住，但 config 可能被手改）
+        )
+        checker = ConditionChecker(config)
+        # 核心防禦檢查：旗標不應透傳到 _is_glove
+        assert checker._is_glove is False
+        # 行為層驗證：爆擊 3% 不會被誤判為合法（需要三排攻擊力才能 pass）
+        lines = [
+            PotentialLine("物理攻擊力%", 13),
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("物理攻擊力%", 13),
+        ]
+        assert checker.check(lines) is False
+
+    def test_is_hat_ignored_on_sub_weapon(self):
+        """FR-3 / AC-6: 副手 + is_hat=True → _is_hat 必為 False"""
+        config = AppConfig(
+            equipment_type="輔助武器 (副手)",
+            target_attribute="物理攻擊力",
+            is_hat=True,
+        )
+        checker = ConditionChecker(config)
+        assert checker._is_hat is False
+
+    def test_no_flag_glove_preset_rejects_crit(self):
+        """AC-7 / Signal 2.3: 永恆 / 光輝 + 目標 STR + 無 is_glove 旗標
+        → 不套爆擊預檢；含爆擊 3% 的 lines 若主屬不足應 fail。
+        """
+        config = AppConfig(
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            # is_glove / is_hat 皆預設 False
+        )
+        checker = ConditionChecker(config)
+        # 爆擊 + 單排 STR → 一般永恆 / 光輝判定不接受爆擊為合格排
+        lines = [
+            PotentialLine("爆擊傷害%", 3),
+            PotentialLine("STR%", 9),
+            PotentialLine("DEX%", 6),  # 第 3 排不達標，無法構成雙 S
+        ]
+        assert checker.check(lines) is False
 
 
 class TestConditionCheckerMaxHP:
@@ -2017,7 +2067,7 @@ class TestConditionCheckerHat:
 
     def test_hat_eternal_str_pass(self):
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2032,7 +2082,7 @@ class TestConditionCheckerHat:
     def test_hat_eternal_with_cooldown(self):
         """帽子：冷卻時間替代 S潛行"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2047,7 +2097,7 @@ class TestConditionCheckerHat:
     def test_hat_eternal_cooldown_any_physical_position(self):
         """帽子：冷卻時間不一定在第1排，排列會分配到 S潛 slot"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2062,7 +2112,7 @@ class TestConditionCheckerHat:
     def test_hat_double_cooldown_pass(self):
         """帽子：兩行冷卻 + 一行屬性也合格（任何排都可能出冷卻）"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2076,7 +2126,7 @@ class TestConditionCheckerHat:
 
     def test_hat_non_eternal_pass(self):
         config = AppConfig(
-            equipment_type="帽子", is_eternal=False,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)", is_hat=True,
             target_attribute="DEX",
 
         )
@@ -2090,7 +2140,7 @@ class TestConditionCheckerHat:
 
     def test_hat_non_eternal_fail(self):
         config = AppConfig(
-            equipment_type="帽子", is_eternal=False,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)", is_hat=True,
             target_attribute="DEX",
 
         )
@@ -2104,7 +2154,7 @@ class TestConditionCheckerHat:
 
     def test_hat_maxhp(self):
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="MaxHP",
         )
         checker = ConditionChecker(config)
@@ -2118,7 +2168,7 @@ class TestConditionCheckerHat:
     def test_hat_all_attr_no_cooldown(self):
         """帽子三行都是屬性也合格"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2134,7 +2184,7 @@ class TestConditionCheckerHat:
         from app.core.condition import generate_condition_summary
 
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
 
         )
@@ -2163,7 +2213,7 @@ class TestConditionCheckerHat:
     def test_hat_triple_cooldown_pass(self):
         """FR-3 N=3: 3 排皆為冷卻 -1 秒 → pass"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -2177,7 +2227,7 @@ class TestConditionCheckerHat:
     def test_hat_cooldown_plus_double_all_stats_pass(self):
         """FR-3 + FR-4: 1 排冷卻 + 2 排全屬性 → pass（全屬作為主屬）"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -2191,7 +2241,7 @@ class TestConditionCheckerHat:
     def test_hat_double_cooldown_plus_all_stats_pass(self):
         """FR-3 + FR-4: 2 排冷卻 + 1 排全屬性 → pass"""
         config = AppConfig(
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
         )
         checker = ConditionChecker(config)
@@ -2782,7 +2832,7 @@ class TestAbsoluteCubeTwoLines:
         """FR-12.1(d) 帽子: 冷卻 -1 × 2 → pass"""
         config = AppConfig(
             cube_type="絕對附加方塊 (僅洗兩排)",
-            equipment_type="帽子", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
             use_preset=True,
         )
@@ -2794,7 +2844,7 @@ class TestAbsoluteCubeTwoLines:
         """FR-12.1(e) 手套: 爆擊傷害 3% × 2 → pass"""
         config = AppConfig(
             cube_type="絕對附加方塊 (僅洗兩排)",
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
             use_preset=True,
         )
@@ -2868,7 +2918,7 @@ class TestAbsoluteCubeTwoLines:
         """爆擊 1% + 1%（tolerance=0 不套用）→ fail"""
         config = AppConfig(
             cube_type="絕對附加方塊 (僅洗兩排)",
-            equipment_type="手套", is_eternal=True,
+            equipment_type="永恆 / 光輝", is_glove=True,
             target_attribute="STR",
             use_preset=True,
         )

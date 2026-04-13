@@ -1,5 +1,4 @@
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -13,7 +12,6 @@ from PyQt6.QtWidgets import (
 from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
-    ETERNAL_EQUIP_TYPES,
     generate_condition_summary,
     get_custom_attributes,
     get_num_lines,
@@ -91,11 +89,6 @@ class ConditionEditor(QGroupBox):
         self.equip_combo.addItems([t for t in EQUIPMENT_TYPES if t != "萌獸"])
         self.equip_combo.currentTextChanged.connect(self._on_equip_changed)
         row1.addWidget(self.equip_combo)
-        # 永恆裝備 checkbox（手套/帽子用）
-        self.eternal_check = QCheckBox("永恆裝備")
-        self.eternal_check.setChecked(True)
-        self.eternal_check.stateChanged.connect(self._update_summary)
-        row1.addWidget(self.eternal_check)
         row1.addStretch()
         self._equip_row = QWidget()
         self._equip_row.setLayout(row1)
@@ -324,7 +317,6 @@ class ConditionEditor(QGroupBox):
     def _on_mode_changed(self, mode: str) -> None:
         self._preset_widget.setVisible(mode == _MODE_PRESET)
         self._custom_widget.setVisible(mode == _MODE_CUSTOM)
-        self._update_eternal_visibility()
         # 切換模式時重建自訂排
         if mode == _MODE_CUSTOM:
             self._reset_custom_rows()
@@ -338,20 +330,10 @@ class ConditionEditor(QGroupBox):
         self.attr_combo.clear()
         self.attr_combo.addItems(attrs)
         self.attr_combo.blockSignals(False)
-        # 永恆 checkbox：手套/帽子切換時預設勾選
-        if equip_type in ETERNAL_EQUIP_TYPES:
-            self.eternal_check.setChecked(True)
-        self._update_eternal_visibility()
         self._on_attr_changed(self.attr_combo.currentText())
         # 切換裝備類型時：比對模式回預設 + 自訂排重建
         self.mode_combo.setCurrentText(_MODE_PRESET)
         self._reset_custom_rows()
-
-    def _update_eternal_visibility(self) -> None:
-        """永恆 checkbox 只在手套/帽子 + 預設模式下顯示。"""
-        is_eternal_equip = self.equip_combo.currentText() in ETERNAL_EQUIP_TYPES
-        is_preset = self._current_mode() == _MODE_PRESET
-        self.eternal_check.setVisible(is_eternal_equip and is_preset)
 
     def _on_attr_changed(self, _attr: str) -> None:
         self._update_summary()
@@ -435,7 +417,6 @@ class ConditionEditor(QGroupBox):
                 cube_type=self._cube_type,
                 equipment_type=self.equip_combo.currentText(),
                 target_attribute=self.attr_combo.currentText(),
-                is_eternal=self.eternal_check.isChecked(),
                 use_preset=True,
             )
         custom_lines = []
@@ -458,7 +439,6 @@ class ConditionEditor(QGroupBox):
         mode = self._current_mode()
         config.equipment_type = self.equip_combo.currentText()
         config.target_attribute = self.attr_combo.currentText()
-        config.is_eternal = self.eternal_check.isChecked()
         config.use_preset = (mode == _MODE_PRESET)
         config.custom_lines = [
             LineCondition(
@@ -476,7 +456,6 @@ class ConditionEditor(QGroupBox):
         attr_idx = self.attr_combo.findText(config.target_attribute)
         if attr_idx >= 0:
             self.attr_combo.setCurrentIndex(attr_idx)
-        self.eternal_check.setChecked(config.is_eternal)
 
         # 從 config 推導模式（合併後只有 PRESET / CUSTOM 兩種）
         mode = _MODE_PRESET if config.use_preset else _MODE_CUSTOM

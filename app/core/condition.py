@@ -432,38 +432,6 @@ THRESHOLD_TABLE: dict[str, dict[str, tuple[tuple[int, int], tuple[int, int] | No
         "物理攻擊力": ((12, 9), None),
         "魔法攻擊力": ((12, 9), None),
     },
-    "手套 (永恆)": {
-        "STR": ((9, 7), (7, 6)),
-        "DEX": ((9, 7), (7, 6)),
-        "INT": ((9, 7), (7, 6)),
-        "LUK": ((9, 7), (7, 6)),
-        "全屬性": ((7, 6), None),
-        "MaxHP": ((12, 9), None),
-    },
-    "手套 (非永恆)": {
-        "STR": ((8, 6), (6, 5)),
-        "DEX": ((8, 6), (6, 5)),
-        "INT": ((8, 6), (6, 5)),
-        "LUK": ((8, 6), (6, 5)),
-        "全屬性": ((6, 5), None),
-        "MaxHP": ((11, 8), None),
-    },
-    "帽子 (永恆)": {
-        "STR": ((9, 7), (7, 6)),
-        "DEX": ((9, 7), (7, 6)),
-        "INT": ((9, 7), (7, 6)),
-        "LUK": ((9, 7), (7, 6)),
-        "MaxHP": ((12, 9), None),
-        "全屬性": ((7, 6), None),
-    },
-    "帽子 (非永恆)": {
-        "STR": ((8, 6), (6, 5)),
-        "DEX": ((8, 6), (6, 5)),
-        "INT": ((8, 6), (6, 5)),
-        "LUK": ((8, 6), (6, 5)),
-        "MaxHP": ((11, 8), None),
-        "全屬性": ((6, 5), None),
-    },
     "萌獸": {
         "最終傷害": ((20, 20), None),
         "物理攻擊力": ((20, 20), None),
@@ -481,8 +449,6 @@ EQUIPMENT_ATTRIBUTES: dict[str, list[str]] = {
     "一般裝備 (神秘、漆黑、頂培)": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "主武器 / 徽章 (米特拉)": ["物理攻擊力", "魔法攻擊力"],
     "輔助武器 (副手)": [_ATTACK_CONVERTIBLE, "物理攻擊力", "魔法攻擊力"],
-    "手套": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
-    "帽子": ["所有屬性", "STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
     "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "雙終被"],
 }
 
@@ -491,22 +457,13 @@ EQUIPMENT_TYPES = list(EQUIPMENT_ATTRIBUTES.keys())
 # 選擇 STR/DEX/INT/LUK 時自動含全屬性的屬性
 _STATS_WITH_ALL_STATS = {"STR", "DEX", "INT", "LUK"}
 
-# 手套類型
-GLOVE_TYPES = {"手套"}
-
-# 帽子類型
-HAT_TYPES = {"帽子"}
-
-# 需要 is_eternal 解析的裝備類型
-ETERNAL_EQUIP_TYPES = {"手套", "帽子"}
-
-
-def _resolve_equip_type(equip: str, is_eternal: bool) -> str:
-    """將合併後的裝備名稱解析為 THRESHOLD_TABLE 的 key。"""
-    if equip in ETERNAL_EQUIP_TYPES:
-        suffix = "永恆" if is_eternal else "非永恆"
-        return f"{equip} ({suffix})"
-    return equip
+# 支援手套 / 帽子子類別的 gear 裝備集合（FR-3 縱深防禦）
+# 公開為 module-level 常數，供 UI 層（condition_editor.py）共用，避免分散定義漂移
+GEAR_EQUIP_TYPES: frozenset[str] = frozenset(
+    {"永恆 / 光輝", "一般裝備 (神秘、漆黑、頂培)"}
+)
+# 向後相容別名（本模組內使用）
+_GEAR_EQUIP = GEAR_EQUIP_TYPES
 
 # OCR 容錯值：防止 8→6、5↔6 等誤讀導致好結果被洗掉
 # 套用對象：主屬性、全屬性、HP、副手攻擊力
@@ -515,29 +472,41 @@ _OCR_TOLERANCE = 2
 _NO_TOLERANCE_EQUIP = {"主武器 / 徽章 (米特拉)", "萌獸"}
 
 # 自訂模式可選屬性（依裝備類型分類）
+# 註：keys 使用英文避免與 UI 顯示字串混用（NFR-2）
 CUSTOM_SELECTABLE_ATTRIBUTES: dict[str, list[str]] = {
-    "裝備": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
-    "手套": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "爆擊傷害"],
-    "帽子": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "技能冷卻時間"],
-    "武器": ["物理攻擊力", "魔法攻擊力"],
-    "萌獸": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "被動技能2"],
+    "gear": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP"],
+    "gear_glove": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "爆擊傷害"],
+    "gear_hat": ["STR", "DEX", "INT", "LUK", "全屬性", "MaxHP", "技能冷卻時間"],
+    "weapon": ["物理攻擊力", "魔法攻擊力"],
+    "beast": ["最終傷害", "物理攻擊力", "魔法攻擊力", "加持技能持續時間", "被動技能2"],
 }
 
-# 裝備類型 → 自訂模式屬性分類
+# 裝備類型 → 自訂模式屬性分類（不含 gear_glove / gear_hat；那兩者由 is_glove / is_hat 旗標路由）
 _EQUIP_TO_CUSTOM_CATEGORY: dict[str, str] = {
-    "永恆 / 光輝": "裝備",
-    "一般裝備 (神秘、漆黑、頂培)": "裝備",
-    "主武器 / 徽章 (米特拉)": "武器",
-    "輔助武器 (副手)": "武器",
-    "手套": "手套",
-    "帽子": "帽子",
-    "萌獸": "萌獸",
+    "永恆 / 光輝": "gear",
+    "一般裝備 (神秘、漆黑、頂培)": "gear",
+    "主武器 / 徽章 (米特拉)": "weapon",
+    "輔助武器 (副手)": "weapon",
+    "萌獸": "beast",
 }
 
 
-def get_custom_attributes(equipment_type: str) -> list[str]:
-    """取得該裝備類型在自訂模式可選的屬性列表。"""
-    category = _EQUIP_TO_CUSTOM_CATEGORY.get(equipment_type, "裝備")
+def get_custom_attributes(
+    equipment_type: str,
+    is_glove: bool = False,
+    is_hat: bool = False,
+) -> list[str]:
+    """取得該裝備類型在自訂模式可選的屬性列表。
+
+    is_glove / is_hat 僅在 gear 裝備（永恆/光輝、一般裝備）時有意義；
+    其他裝備類型會忽略兩個旗標（FR-3 縱深防禦）。
+    """
+    is_gear = equipment_type in _GEAR_EQUIP
+    if is_gear and is_glove:
+        return CUSTOM_SELECTABLE_ATTRIBUTES["gear_glove"]
+    if is_gear and is_hat:
+        return CUSTOM_SELECTABLE_ATTRIBUTES["gear_hat"]
+    category = _EQUIP_TO_CUSTOM_CATEGORY.get(equipment_type, "gear")
     return CUSTOM_SELECTABLE_ATTRIBUTES[category]
 
 
@@ -707,7 +676,8 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
         return _generate_custom_summary(config.custom_lines)
 
     equip = config.equipment_type
-    resolved = _resolve_equip_type(equip, config.is_eternal)
+    # R1: 手套/帽子 已合併進 gear；equip 直接作為 THRESHOLD_TABLE key，無需解析
+    resolved = equip
     attr = config.target_attribute
     num_lines = get_num_lines(config.cube_type)
 
@@ -744,8 +714,10 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
             "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
         ]
 
-    is_glove = equip in GLOVE_TYPES
-    is_hat = equip in HAT_TYPES
+    # FR-3 縱深防禦：is_glove / is_hat 僅在 gear 裝備上有意義
+    is_gear = equip in _GEAR_EQUIP
+    is_glove = config.is_glove and is_gear
+    is_hat = config.is_hat and is_gear
 
     # 絕對附加方塊：白名單 — 必須在所有屬性之前（與 check() dispatch 順序一致）
     if num_lines == 2 and config.cube_type in _TWO_LINE_CUBE_TYPES:
@@ -943,7 +915,8 @@ class ConditionChecker:
             self._custom_lines = config.custom_lines
             self._valid = True
             return
-        resolved = _resolve_equip_type(equip, config.is_eternal)
+        # R1: 手套/帽子 已合併進 gear；equip 直接作為 THRESHOLD_TABLE key
+        resolved = equip
         attr = config.target_attribute
 
         # 預設旗標：任何早退分支都不會讓後續屬性存取出錯
@@ -956,8 +929,10 @@ class ConditionChecker:
             self._valid = True
             return
 
-        self._is_glove = equip in GLOVE_TYPES
-        self._is_hat = equip in HAT_TYPES
+        # FR-3 縱深防禦：is_glove / is_hat 僅在 gear 裝備上有意義
+        is_gear = equip in _GEAR_EQUIP
+        self._is_glove = config.is_glove and is_gear
+        self._is_hat = config.is_hat and is_gear
 
         # 絕對附加白名單：必須在所有屬性 early return 之前設定
         # 用 attr != _ATTACK_CONVERTIBLE 而非 self._is_attack_convertible（此時尚未設定為最終值）
