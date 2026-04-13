@@ -79,46 +79,13 @@ class AppConfig:
             data = json.loads(path.read_text(encoding="utf-8"))
             raw_lines = data.get("custom_lines", [])
             if raw_lines:
-                custom_lines = []
-                for i, item in enumerate(raw_lines):
-                    if "position" not in item:
-                        item["position"] = i + 1
-                    item.pop("include_all_stats", None)  # 舊欄位移除
-                    custom_lines.append(LineCondition(**item))
+                custom_lines = [LineCondition(**item) for item in raw_lines]
             else:
                 custom_lines = [LineCondition()]
 
-            # 舊設定遷移（保留非手套 / 帽子的歷史 key）
-            equip = data.get("equipment_type", "永恆 / 光輝")
-            # 防呆：equipment_type 必須是字串；異常值 fallback 預設
-            if not isinstance(equip, str):
-                equip = "永恆 / 光輝"
-            _OLD_EQUIP_MIGRATION = {
-                "永恆裝備·光輝套裝": "永恆 / 光輝",
-                "主武器": "主武器 / 徽章 (米特拉)",
-                "徽章 (米特拉)": "主武器 / 徽章 (米特拉)",
-            }
-            if equip in _OLD_EQUIP_MIGRATION:
-                equip = _OLD_EQUIP_MIGRATION[equip]
-
-            # v3 防呆（Signal 3.3, FR-11）：舊 "手套" / "帽子" / "手套 (永恆)" 等
-            # 不再是合法 equipment_type；fallback 為預設值並 log（不 crash）
-            if equip in {"手套", "帽子"} or equip.startswith(("手套 (", "帽子 (")):
-                logger.warning(
-                    "Legacy equipment_type '%s' is no longer valid; "
-                    "fallback to '永恆 / 光輝'. User should reconfigure.",
-                    equip,
-                )
-                equip = "永恆 / 光輝"
-
-            # 方塊類型遷移：無後綴 → 有後綴
-            cube_type = data.get("cube_type", "珍貴附加方塊 (粉紅色)")
-            if cube_type == "絕對附加方塊":
-                cube_type = "絕對附加方塊 (僅洗兩排)"
-
             return cls(
-                cube_type=cube_type,
-                equipment_type=equip,
+                cube_type=data.get("cube_type", "珍貴附加方塊 (粉紅色)"),
+                equipment_type=data.get("equipment_type", "永恆 / 光輝"),
                 target_attribute=data.get("target_attribute", "STR"),
                 is_glove=bool(data.get("is_glove", False)),
                 is_hat=bool(data.get("is_hat", False)),
