@@ -6,6 +6,39 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-14
+
+### Added
+
+- feat: condition-rules-v2 — absolute additional whitelist, custom mode merge, differentiated summary per cube type
+- feat: condition-rules-v3 — gear equipment type consolidation (6 → 4 types), `is_glove` / `is_hat` mutually-exclusive flags replacing `is_eternal`, FR-3 defense-in-depth gating so subtype flags only apply to gear
+- feat: condition-rules-v3 Phase 2 — precise verbatim summary strings for preset and absolute-additional cubes (`支援 力 / 敏 / 智 / 幸、全屬、HP，包含 3S、雙 S 及全屬混搭`, `僅支援 99 四屬、77全、12 12 HP`, `支援 -1 -1 冷卻，也接受 77 全 冷卻；若洗到主屬會直接洗掉`, etc.)
+- feat: 1920 × 1080 resolution hint label on main window for OCR accuracy guidance
+- feat: sub-weapon physical / magic convertible preset option with widened 260px attribute combo
+- feat: generalized crit damage OCR regex for observed M3 variants
+- test: GUI tests for ConditionEditor helpers with Qt offscreen fixture
+- test: ast-based locale sweep guarding against simplified-Chinese keywords in user-visible strings (FR-29)
+
+### Fixed
+
+- fix: Boss damage regex character order
+- fix: expanded OCR corrections and skip tolerance for crit damage in custom mode
+
+### Changed
+
+- UI: 檢查更新 button restyled with Material Blue QSS (hover / pressed / disabled pseudo-states) so it is visually distinguishable as a button
+- UI: checkbox label renamed 帽子 → 冷卻帽 to clarify the "roll a cooldown hat" scope (internal `is_hat` flag unchanged)
+- condition rules: summary text adopts community shorthand notation (99 力 / 77 全 / 12 12 HP / 33 爆 / -1 -1 冷卻)
+- sub-weapon: target attribute dropdown simplified to a single "物理/魔法攻擊力 (可轉換)" option
+- refactor: unify preset dispatch via `_run_preset_any_pos` helper
+- refactor: extract `_sync_subtype_checks`, `_toggle_subtype_mutex`, `_clear_custom_rows`, `_build_line_conditions` helpers in ConditionEditor
+
+### Removed
+
+- UI: GPU acceleration checkbox (feature discontinued; `AppConfig.use_gpu` dataclass field preserved to avoid breaking potential OCR engine references)
+- internal: legacy config migration paths (`_OLD_EQUIP_MIGRATION` table and related compat keys) — release model is full-package redownload (A3 decision)
+- internal: v2 dispatch symbols `GLOVE_TYPES` / `HAT_TYPES` / `ETERNAL_EQUIP_TYPES` / `_resolve_equip_type`
+
 ## [0.4.0] - 2026-04-06
 
 ### Added
