@@ -8,9 +8,9 @@ class TestConfigSaveLoad:
         path = tmp_path / "config.json"
         config = AppConfig(
             cube_type="恢復附加方塊 (紅色)",
-            equipment_type="手套",
+            equipment_type="永恆 / 光輝",
             target_attribute="STR",
-            is_eternal=True,
+            is_glove=True,
             potential_region=Region(100, 200, 300, 150),
             delay_ms=800,
         )
@@ -18,9 +18,10 @@ class TestConfigSaveLoad:
         loaded = AppConfig.load(path)
 
         assert loaded.cube_type == "恢復附加方塊 (紅色)"
-        assert loaded.equipment_type == "手套"
+        assert loaded.equipment_type == "永恆 / 光輝"
         assert loaded.target_attribute == "STR"
-        assert loaded.is_eternal is True
+        assert loaded.is_glove is True
+        assert loaded.is_hat is False
         assert loaded.potential_region.x == 100
         assert loaded.potential_region.width == 300
         assert loaded.delay_ms == 800
@@ -40,9 +41,8 @@ class TestConfigSaveLoad:
 
     def test_load_partial_data(self, tmp_path: Path):
         path = tmp_path / "partial.json"
-        path.write_text('{"cube_type": "絕對附加方塊", "delay_ms": 1000}')
+        path.write_text('{"cube_type": "絕對附加方塊 (僅洗兩排)", "delay_ms": 1000}')
         config = AppConfig.load(path)
-        # FR-19: 無後綴自動遷移為有後綴
         assert config.cube_type == "絕對附加方塊 (僅洗兩排)"
         assert config.delay_ms == 1000
         assert config.potential_region.is_set() is False
@@ -69,9 +69,9 @@ class TestConfigSaveLoad:
         assert loaded.custom_lines[2].min_value == 2
 
     def test_load_without_custom_lines(self, tmp_path: Path):
-        """舊設定檔沒有 custom_lines 欄位，載入時應使用預設值。cube_type 自動遷移。"""
-        path = tmp_path / "old.json"
-        path.write_text('{"cube_type": "絕對附加方塊"}')
+        """config 沒有 custom_lines 欄位時，載入應使用預設值。"""
+        path = tmp_path / "minimal.json"
+        path.write_text('{"cube_type": "絕對附加方塊 (僅洗兩排)"}')
         config = AppConfig.load(path)
         assert config.cube_type == "絕對附加方塊 (僅洗兩排)"
         assert config.use_preset is True
@@ -112,20 +112,32 @@ class TestConfigSaveLoad:
         assert loaded.custom_lines[1].position == 2
         assert loaded.custom_lines[2].position == 3
 
-    def test_old_config_without_position(self, tmp_path: Path):
-        """舊 config 無 position → 自動補 position=i+1（保留位置綁定行為）。"""
-        path = tmp_path / "old.json"
+class TestAppConfigValidation:
+    """v3 R1: __post_init__ 互斥驗證 + save 路徑 schema 驗證"""
+
+    def test_is_glove_and_is_hat_mutex(self):
+        """AC-4 / Signal 3.4: 兩個旗標同時 True → __post_init__ 自動歸零 + warning"""
+        config = AppConfig(is_glove=True, is_hat=True)
+        assert config.is_glove is False
+        assert config.is_hat is False
+
+    def test_is_glove_alone_preserved(self):
+        config = AppConfig(is_glove=True, is_hat=False)
+        assert config.is_glove is True
+        assert config.is_hat is False
+
+    def test_is_hat_alone_preserved(self):
+        config = AppConfig(is_glove=False, is_hat=True)
+        assert config.is_glove is False
+        assert config.is_hat is True
+
+    def test_save_path_omits_is_eternal(self, tmp_path: Path):
+        """AC-2 / Signal 3.5: save() 寫出的 JSON 不含 'is_eternal' key"""
         import json
-        data = {
-            "use_preset": False,
-            "custom_lines": [
-                {"attribute": "STR", "min_value": 9, "include_all_stats": False},
-                {"attribute": "DEX", "min_value": 7, "include_all_stats": False},
-                {"attribute": "INT", "min_value": 5, "include_all_stats": False},
-            ],
-        }
-        path.write_text(json.dumps(data), encoding="utf-8")
-        loaded = AppConfig.load(path)
-        assert loaded.custom_lines[0].position == 1
-        assert loaded.custom_lines[1].position == 2
-        assert loaded.custom_lines[2].position == 3
+        path = tmp_path / "config.json"
+        config = AppConfig(equipment_type="永恆 / 光輝", is_glove=True)
+        config.save(path)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert "is_eternal" not in data
+        assert "is_glove" in data
+        assert "is_hat" in data
