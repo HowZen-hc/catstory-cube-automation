@@ -25,6 +25,25 @@ def editor(qapp):
     e.close()
 
 
+class TestSubtypeCheckboxLabels:
+    """Phase 2 (R4) AC-8 / Signal 7.4 / Signal 2.1.2: UI label + tooltip 斷言。"""
+
+    def test_glove_check_label(self, editor):
+        assert editor.glove_check.text() == "手套"
+
+    def test_hat_check_label_renamed_to_cooldown_hat(self, editor):
+        """FR-7: UI label「帽子」→「冷卻帽」（Signal 7.4 widget text 斷言）。"""
+        assert editor.hat_check.text() == "冷卻帽"
+
+    def test_checkbox_tooltip_covers_required_tokens(self, editor):
+        """Signal 2.1.2: tooltip 文案含「爆擊」、「冷卻」與「三排」或「同屬」。"""
+        tip = editor.hat_check.toolTip()
+        assert tip == editor.glove_check.toolTip()
+        assert "爆擊" in tip
+        assert "冷卻" in tip
+        assert ("三排" in tip) or ("同屬" in tip)
+
+
 def _pick_position(row, position):
     idx = row.position_combo.findData(position)
     assert idx >= 0, f"position {position} not found in combo"

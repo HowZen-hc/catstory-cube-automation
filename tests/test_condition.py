@@ -2242,20 +2242,17 @@ class TestConditionCheckerHat:
         assert checker.check(lines) is True
 
     def test_hat_summary_shows_cooldown(self):
-        """v3 R3 Row 3-ET-S-H：hat summary 含「冷卻」+「全」（FR-19）。"""
+        """Phase 2 row 3-G-HAT：冷卻帽 3-line summary 為固定字串（FR-20）。"""
         from app.core.condition import generate_condition_summary
 
         config = AppConfig(
             equipment_type="永恆 / 光輝", is_hat=True,
             target_attribute="STR",
-
         )
         lines = generate_condition_summary(config)
-        text = "\n".join(lines)
-        # R3 shorthand: "支援 99 力、77 全、-1 或 -2 冷卻（3S、雙 S 含全屬混搭）"
-        assert "冷卻" in text
-        assert "全" in text
-        assert "99 力" in text
+        assert lines == [
+            "必須符合一排為技能冷卻時間 -1 秒，支援 -2 冷卻、3S、雙 S",
+        ]
 
     def test_non_hat_no_cooldown(self):
         """非帽子裝備不接受冷卻時間"""
@@ -2318,150 +2315,250 @@ class TestConditionCheckerHat:
 
 
 class TestSummaryShorthand:
-    """v3 R3: Summary 社群標記法斷言（AC-1..AC-8, Signal 5.1..5.8, row catalog 覆蓋）。
+    """Phase 2 (R4): Summary 逐字斷言（AC-1..AC-7, Signal 5.1..5.8 + 6.1..6.7）。
 
-    Row catalog 對照（docs/features/condition-rules-v3/2-tech-spec.md §3.4.2）：
-    - 3-ET-*, 3-NM-*: 3-line 珍貴/恢復 + 永恆 vs 一般裝備
-    - 3-W, 3-SW: 主武器 / 副手 3-line
-    - A-ET-*, A-NM-*: 絕對附加 (2-line) + 永恆 vs 一般
-    - A-SW: 絕對附加副手（保留 v2 形狀 + 日冕）
+    Row catalog 對照（docs/features/condition-rules-v3/2-tech-spec.md §3.6.1）：
+    - 3-G-AS / 3-G-S4 / 3-G-ALL / 3-G-HP / 3-G-GLOVE / 3-G-HAT: 預設規則 3-line
+    - 3-W-PHYS / 3-W-MAG: 主武器 / 徽章
+    - A-S4 / A-S4-NM / A-HP / A-HP-NM / A-AS / A-AS-NM / A-GLOVE / A-HAT: 絕對附加
+    - 3-SW / A-SW: 副手 3-line / 2-line（FR-21.1 維持原行為）
     """
 
     _CUBE_NORMAL = "珍貴附加方塊 (粉紅色)"
     _CUBE_ABSOLUTE = "絕對附加方塊 (僅洗兩排)"
 
-    # ── AC-1 (Signal 5.1, Row 3-ET-AS): 珍貴+永恆+所有屬性 ──
+    # ── AC-1 (Signal 5.1, Row 3-G-AS) ──
 
-    def test_row_3_et_as_all_stats_shorthand(self):
+    def test_row_3_g_as_eternal_all_attrs(self):
         config = AppConfig(
             cube_type=self._CUBE_NORMAL,
             equipment_type="永恆 / 光輝",
             target_attribute="所有屬性",
         )
-        text = "\n".join(generate_condition_summary(config))
-        for fragment in ("99 力", "敏", "智", "幸", "77 全", "12 12 HP"):
-            assert fragment in text, f"missing {fragment!r} in {text!r}"
+        assert generate_condition_summary(config) == [
+            "支援 力 / 敏 / 智 / 幸、全屬、HP，包含 3S、雙 S 及全屬混搭",
+        ]
 
-    # ── AC-2 (Signal 5.2, Row 3-NM-S): 珍貴+一般+STR ──
+    def test_row_3_g_as_normal_all_attrs_same_string(self):
+        """FR-21.2: 一般裝備與永恆 summary 完全相同。"""
+        config = AppConfig(
+            cube_type=self._CUBE_NORMAL,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="所有屬性",
+        )
+        assert generate_condition_summary(config) == [
+            "支援 力 / 敏 / 智 / 幸、全屬、HP，包含 3S、雙 S 及全屬混搭",
+        ]
 
-    def test_row_3_nm_s_normal_gear_str(self):
+    # ── AC-2 (Signal 5.2 / 5.3, Row 3-G-S4 / 3-G-ALL) ──
+
+    def test_row_3_g_s4_main_stat(self):
+        for stat in ("STR", "DEX", "INT", "LUK"):
+            config = AppConfig(
+                cube_type=self._CUBE_NORMAL,
+                equipment_type="永恆 / 光輝",
+                target_attribute=stat,
+            )
+            assert generate_condition_summary(config) == [
+                "支援 3S、雙 S，包含全屬混搭",
+            ], f"failed for stat={stat}"
+
+    def test_row_3_g_s4_no_eternal_numerals(self):
+        """FR-17: 主屬目標不含 99 / 88 / 77 / 66 等裝備等級數值。"""
         config = AppConfig(
             cube_type=self._CUBE_NORMAL,
             equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="STR",
         )
-        text = "\n".join(generate_condition_summary(config))
-        assert "88 力" in text
-        assert "66 全" in text
-        # 負向：不含永恆等級數值
-        assert "99" not in text
-        assert "77" not in text
+        text = generate_condition_summary(config)[0]
+        for numeral in ("99", "88", "77", "66", "12 12", "11 11"):
+            assert numeral not in text
 
-    # ── AC-3 (Signal 5.3, Row A-ET-S / A-ET-HP): 絕對附加 + 主屬 / HP + 全屬 fallback ──
-
-    def test_row_a_et_s_absolute_str_with_all_stats_fallback(self):
+    def test_row_3_g_all_target_all_stats(self):
+        """FR-18: target = 全屬性 → 不加全屬混搭字樣。"""
         config = AppConfig(
-            cube_type=self._CUBE_ABSOLUTE,
-            equipment_type="永恆 / 光輝",
-            target_attribute="STR",
-        )
-        text = "\n".join(generate_condition_summary(config))
-        assert "99 力" in text
-        assert "7 7 全屬" in text
-        assert "非全屬職業可於遊戲內轉換裝備職業" in text
-
-    def test_row_a_et_hp_absolute_hp_with_all_stats_fallback(self):
-        config = AppConfig(
-            cube_type=self._CUBE_ABSOLUTE,
-            equipment_type="永恆 / 光輝",
-            target_attribute="MaxHP",
-        )
-        text = "\n".join(generate_condition_summary(config))
-        assert "12 12 HP" in text
-        assert "7 7 全屬" in text
-
-    def test_row_a_et_all_absolute_all_stats_no_fallback(self):
-        """目標 = 全屬性本身時，不需再加註 fallback。"""
-        config = AppConfig(
-            cube_type=self._CUBE_ABSOLUTE,
+            cube_type=self._CUBE_NORMAL,
             equipment_type="永恆 / 光輝",
             target_attribute="全屬性",
         )
-        text = "\n".join(generate_condition_summary(config))
-        assert "77 全" in text
-        assert "也接受" not in text
+        assert generate_condition_summary(config) == [
+            "包含 3S、雙 S 的情況",
+        ]
 
-    # ── AC-4 (Signal 5.4, 5.5): 絕對附加 + 手套 / 帽子 ──
-
-    def test_row_a_nm_as_g_absolute_normal_glove(self):
+    def test_row_3_g_hp_maxhp(self):
+        """tech-spec §3.6.1 row 3-G-HP."""
         config = AppConfig(
-            cube_type=self._CUBE_ABSOLUTE,
+            cube_type=self._CUBE_NORMAL,
+            equipment_type="永恆 / 光輝",
+            target_attribute="MaxHP",
+        )
+        assert generate_condition_summary(config) == [
+            "支援 HP、全屬，包含 3S、雙 S 及全屬混搭",
+        ]
+
+    # ── AC-3 (Signal 5.4 / 5.5, Row 3-G-GLOVE / 3-G-HAT) ──
+
+    def test_row_3_g_glove_overrides_target(self):
+        """FR-19: 手套覆蓋 target，固定字串。"""
+        config = AppConfig(
+            cube_type=self._CUBE_NORMAL,
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            is_glove=True,
+        )
+        assert generate_condition_summary(config) == [
+            "必須符合一排為爆擊傷害 3%，支援雙爆、3S、雙 S",
+        ]
+
+    def test_row_3_g_hat_overrides_target(self):
+        """FR-20: 冷卻帽覆蓋 target，固定字串。"""
+        config = AppConfig(
+            cube_type=self._CUBE_NORMAL,
             equipment_type="一般裝備 (神秘、漆黑、頂培)",
             target_attribute="所有屬性",
-            is_glove=True,
-        )
-        text = "\n".join(generate_condition_summary(config))
-        assert "33 爆" in text
-
-    def test_row_a_et_as_h_absolute_eternal_hat(self):
-        config = AppConfig(
-            cube_type=self._CUBE_ABSOLUTE,
-            equipment_type="永恆 / 光輝",
-            target_attribute="所有屬性",
             is_hat=True,
         )
-        text = "\n".join(generate_condition_summary(config))
-        assert "-1 -1 冷卻" in text
+        assert generate_condition_summary(config) == [
+            "必須符合一排為技能冷卻時間 -1 秒，支援 -2 冷卻、3S、雙 S",
+        ]
 
-    # ── AC-5 (FR-19, Row 3-ET-S-G / 3-ET-S-H): 3-line gear + 手套 / 帽子 ──
+    # ── AC-4 (Signal 5.6, Row 3-W-PHYS / 3-W-MAG) ──
 
-    def test_row_3_et_s_g_3line_glove_no_percent(self):
-        """FR-19: 3-line 手套 summary 含「雙爆」但不含具體 3%。"""
-        config = AppConfig(
-            cube_type=self._CUBE_NORMAL,
-            equipment_type="永恆 / 光輝",
-            target_attribute="STR",
-            is_glove=True,
-        )
-        text = "\n".join(generate_condition_summary(config))
-        assert "雙爆" in text
-        assert "3%" not in text
-
-    def test_row_3_et_s_h_3line_hat_includes_minus2(self):
-        """FR-19: 3-line 帽子 summary 含「-2 冷卻」字樣（支援多排 -1）。"""
-        config = AppConfig(
-            cube_type=self._CUBE_NORMAL,
-            equipment_type="永恆 / 光輝",
-            target_attribute="STR",
-            is_hat=True,
-        )
-        text = "\n".join(generate_condition_summary(config))
-        assert "-2" in text
-        assert "冷卻" in text
-
-    # ── AC-6 (Signal 5.6, Row 3-W): 主武器 ──
-
-    def test_row_3_w_main_weapon_phys(self):
-        """FR-20: 珍貴 + 主武器 (物攻) → 三物 / 魔。"""
+    def test_row_3_w_phys_main_weapon(self):
+        """FR-21: 主武器 + 物理攻擊力 → 三物。"""
         config = AppConfig(
             cube_type=self._CUBE_NORMAL,
             equipment_type="主武器 / 徽章 (米特拉)",
             target_attribute="物理攻擊力",
         )
-        text = "\n".join(generate_condition_summary(config))
-        assert "三物 / 魔" in text
+        assert generate_condition_summary(config) == [
+            "三物（支援 3S、雙 S）",
+        ]
 
-    def test_row_3_w_main_weapon_magic_same_summary(self):
-        """FR-20: 主武器選魔攻亦走同一 shorthand（物 / 魔同權）。"""
+    def test_row_3_w_mag_main_weapon(self):
+        """FR-21: 主武器 + 魔法攻擊力 → 三魔。"""
         config = AppConfig(
             cube_type=self._CUBE_NORMAL,
             equipment_type="主武器 / 徽章 (米特拉)",
             target_attribute="魔法攻擊力",
         )
-        text = "\n".join(generate_condition_summary(config))
-        assert "三物 / 魔" in text
+        assert generate_condition_summary(config) == [
+            "三魔（支援 3S、雙 S）",
+        ]
 
-    # ── AC-7 (Signal 5.7): 絕對附加 summary 不含「9 7 雙 S 混搭」 ──
+    # ── AC-5 (Signal 6.1, Row A-AS / A-AS-NM): 絕對附加 + 所有屬性 ──
+
+    def test_row_a_as_eternal(self):
+        """FR-22: 注意 `77全` 無空格。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="所有屬性",
+        )
+        assert generate_condition_summary(config) == [
+            "僅支援 99 四屬、77全、12 12 HP",
+        ]
+
+    def test_row_a_as_normal(self):
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="所有屬性",
+        )
+        assert generate_condition_summary(config) == [
+            "僅支援 88 四屬、66全、11 11 HP",
+        ]
+
+    # ── AC-6 (Signal 6.2 / 6.3, Row A-S4 / A-HP) ──
+
+    def test_row_a_s4_eternal_str(self):
+        """FR-23: 無括號、無「也接受」字樣。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+        )
+        assert generate_condition_summary(config) == ["99 力"]
+
+    def test_row_a_s4_normal_str(self):
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="STR",
+        )
+        assert generate_condition_summary(config) == ["88 力"]
+
+    def test_row_a_hp_eternal(self):
+        """FR-23.1: 永恆 HP 絕對附加 = 12 12 HP。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="MaxHP",
+        )
+        assert generate_condition_summary(config) == ["12 12 HP"]
+
+    def test_row_a_hp_normal(self):
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="MaxHP",
+        )
+        assert generate_condition_summary(config) == ["11 11 HP"]
+
+    def test_row_a_all_target_all_stats_eternal(self):
+        """Phase 2 絕對附加 + target = 全屬性 → 單列 `77全`（無空格；與 FR-22 的 `77全` 空格規則一致）。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="全屬性",
+        )
+        assert generate_condition_summary(config) == ["77全"]
+
+    def test_row_a_all_target_all_stats_normal(self):
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="全屬性",
+        )
+        assert generate_condition_summary(config) == ["66全"]
+
+    # ── AC-7 (Signal 6.4 / 6.5, Row A-GLOVE / A-HAT) ──
+
+    def test_row_a_glove_overrides(self):
+        """FR-24: 絕對附加 + 手套 → 僅支援 33 爆（覆蓋 target）。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="一般裝備 (神秘、漆黑、頂培)",
+            target_attribute="所有屬性",
+            is_glove=True,
+        )
+        assert generate_condition_summary(config) == ["僅支援 33 爆"]
+
+    def test_row_a_hat_overrides(self):
+        """FR-25: 絕對附加 + 冷卻帽 → 「77 全 冷卻」白名單 + 警示語（覆蓋 target）。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="所有屬性",
+            is_hat=True,
+        )
+        assert generate_condition_summary(config) == [
+            "支援 -1 -1 冷卻，也接受 77 全 冷卻；若洗到主屬會直接洗掉",
+        ]
+
+    def test_row_a_hat_overrides_main_stat_target(self):
+        """FR-25: 冷卻帽於 target=主屬 仍覆蓋（提示「洗到主屬會洗掉」）。"""
+        config = AppConfig(
+            cube_type=self._CUBE_ABSOLUTE,
+            equipment_type="永恆 / 光輝",
+            target_attribute="STR",
+            is_hat=True,
+        )
+        assert generate_condition_summary(config) == [
+            "支援 -1 -1 冷卻，也接受 77 全 冷卻；若洗到主屬會直接洗掉",
+        ]
+
+    # ── 負向斷言：絕對附加 summary 不含 Phase 1 雜訊 ──
 
     def test_absolute_summary_no_mixed_dual_s(self):
         for equip, target in [
@@ -2476,7 +2573,7 @@ class TestSummaryShorthand:
             )
             text = "\n".join(generate_condition_summary(config))
             assert "9 7" not in text
-            assert "混搭" not in text or "全屬混搭" in text  # 3-line 可用「全屬混搭」
+            assert "雙 S 混搭" not in text
 
     # ── AC-8 (Signal 5.8, Row 3-SW / A-SW): 副手 3-line / 2-line 日冕 ──
 
@@ -2985,7 +3082,7 @@ class TestAbsoluteCubeTwoLines:
         assert summary == ["物理攻擊力 13%"]
 
     def test_summary_preset_with_all_stats(self):
-        """v3 R3 Row A-ET-S: 絕對附加 + 永恆 + STR → 99 力 + 7 7 全屬 fallback（FR-23）。"""
+        """Phase 2 Row A-S4: 絕對附加 + 永恆 + STR → 99 力（無括號、無 fallback）。"""
         config = AppConfig(
             cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
@@ -2993,12 +3090,10 @@ class TestAbsoluteCubeTwoLines:
             use_preset=True,
         )
         summary = generate_condition_summary(config)
-        assert summary == [
-            "99 力；也接受 7 7 全屬（非全屬職業可於遊戲內轉換裝備職業）",
-        ]
+        assert summary == ["99 力"]
 
     def test_summary_all_attrs(self):
-        """v3 R3 Row A-ET-AS: 絕對附加 + 永恆 + 所有屬性 → 合併 shorthand。"""
+        """Phase 2 Row A-AS: 絕對附加 + 永恆 + 所有屬性 → 「僅支援」白名單。"""
         config = AppConfig(
             cube_type="絕對附加方塊 (僅洗兩排)",
             equipment_type="永恆 / 光輝",
@@ -3006,12 +3101,7 @@ class TestAbsoluteCubeTwoLines:
             use_preset=True,
         )
         summary = generate_condition_summary(config)
-        text = "\n".join(summary)
-        assert "99 力 / 敏 / 智 / 幸" in text
-        assert "77 全" in text
-        assert "12 12 HP" in text
-        # R3 不再使用 "× 2" 冗長格式
-        assert "× 2" not in text
+        assert summary == ["僅支援 99 四屬、77全、12 12 HP"]
 
     def test_tolerance_applies(self):
         """OCR 容錯 tolerance=2 套用在絕對附加方塊。"""
