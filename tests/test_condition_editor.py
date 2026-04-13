@@ -217,6 +217,28 @@ class TestResetSubtypeChecks:
         assert editor.hat_check.isEnabled() is True
 
 
+class TestCubeTypeChangeRefreshesSummary:
+    def test_summary_updates_when_cube_type_changes(self, editor):
+        """Regression: switching cube type must refresh summary even when equip / mode
+        settle back to identical widget values (no child signal would fire).
+
+        Preconditions: equip/mode already at defaults so `_reset_to_defaults`
+        produces no-op setCurrentText calls — the summary can only refresh if
+        `on_cube_type_changed` calls `_update_summary` explicitly.
+        """
+        editor.equip_combo.setCurrentIndex(0)
+        editor.mode_combo.setCurrentText("預設規則")
+        before = editor.summary_label.text()
+        assert "僅支援" not in before  # 珍貴附加 uses preset rules, not whitelist wording
+
+        editor.on_cube_type_changed("絕對附加方塊 (僅洗兩排)")
+
+        assert editor._cube_type == "絕對附加方塊 (僅洗兩排)"
+        after = editor.summary_label.text()
+        assert after != before
+        assert "僅支援" in after  # absolute-cube whitelist wording (FR-22)
+
+
 class TestToggleSubtypeMutex:
     def test_checking_glove_disables_hat_and_rebuilds_rows(self, editor):
         editor.equip_combo.setCurrentText(_GEAR_EQUIP)

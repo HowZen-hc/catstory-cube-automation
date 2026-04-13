@@ -333,6 +333,9 @@ class ConditionEditor(QGroupBox):
             self._equip_row.setVisible(True)
             # 非萌獸才重設裝備回第一項
             self._reset_to_defaults()
+        # 若 equip / mode 重設後值未變，子 widget 不會發 signal；
+        # 但 cube_type 已變，摘要依賴 self._cube_type，必須顯式刷新。
+        self._update_summary()
 
     # ── 模式切換 ──
 

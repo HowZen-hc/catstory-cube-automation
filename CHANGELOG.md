@@ -23,6 +23,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 - fix: Boss damage regex character order
 - fix: expanded OCR corrections and skip tolerance for crit damage in custom mode
+- fix: re-selecting the cube type now refreshes the summary label (previously the description kept the old cube's text when equip / mode stayed at defaults)
 
 ### Changed
 
