@@ -34,8 +34,8 @@ _DEFAULT_ATTR_WIDTH = 150
 _CHECKBOX_TOOLTIP = (
     "勾選後會加入特殊排預檢：\n"
     "• 手套：至少 1 排爆擊傷害 3%（絕對附加須 2 排）\n"
-    "• 帽子：至少 1 排冷卻 -1 秒，含 -2（絕對附加須 2 排）\n"
-    "若該排不需特殊條件（例：帽子職業不吃冷卻），保持未勾"
+    "• 冷卻帽：至少 1 排冷卻 -1 秒，含 -2（絕對附加須 2 排）\n"
+    "若三排同屬無爆 / 冷卻會判定為不合格；若非洗冷卻帽（例如只洗主屬），請保持未勾"
 )
 
 
@@ -108,7 +108,7 @@ class ConditionEditor(QGroupBox):
         self.glove_check.setToolTip(_CHECKBOX_TOOLTIP)
         self.glove_check.toggled.connect(self._on_glove_toggled)
         row1.addWidget(self.glove_check)
-        self.hat_check = QCheckBox("帽子")
+        self.hat_check = QCheckBox("冷卻帽")
         self.hat_check.setToolTip(_CHECKBOX_TOOLTIP)
         self.hat_check.toggled.connect(self._on_hat_toggled)
         row1.addWidget(self.hat_check)
