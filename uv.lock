@@ -81,7 +81,7 @@ wheels = [
 
 [[package]]
 name = "catstory-cube-automation"
-version = "0.3.0"
+version = "0.5.0"
 source = { virtual = "." }
 dependencies = [
     { name = "mss" },
