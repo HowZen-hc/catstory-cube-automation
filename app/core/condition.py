@@ -639,6 +639,88 @@ def _format_custom_line(lc: LineCondition) -> str:
     return f"{lc.attribute} ≥ {lc.min_value}%"
 
 
+# ── v3 Summary shorthand（社群標記法） ───────────────────
+
+# 主屬縮寫：STR→力, DEX→敏, INT→智, LUK→幸
+_STAT_TO_ZH: dict[str, str] = {
+    "STR": "力",
+    "DEX": "敏",
+    "INT": "智",
+    "LUK": "幸",
+}
+
+# 絕對附加主屬 / HP 目標時的全屬 fallback 註記（FR-23）
+_ABSOLUTE_ALL_STATS_FALLBACK_NOTE = (
+    "（非全屬職業可於遊戲內轉換裝備職業）"
+)
+
+# 副手共通註記：遊戲內可進行物魔日冕
+_SUB_WEAPON_DAYGUAN_NOTE = "（副手可於遊戲內進行物魔日冕）"
+
+
+def _fmt_stat_shorthand(stat: str, s_val: int) -> str:
+    """格式化主屬 shorthand，例：STR + 9 → "99 力"。"""
+    zh = _STAT_TO_ZH.get(stat, stat)
+    return f"{s_val}{s_val} {zh}"
+
+
+def _fmt_all_stats(s_val: int) -> str:
+    """全屬性 shorthand，例：7 → "77 全"。"""
+    return f"{s_val}{s_val} 全"
+
+
+def _fmt_hp(s_val: int) -> str:
+    """MaxHP shorthand，例：12 → "12 12 HP"（兩數字間空格，符合社群慣用）。"""
+    return f"{s_val} {s_val} HP"
+
+
+def _collect_gear_shorthand_parts(
+    equip_thresholds: dict,
+) -> list[str]:
+    """從裝備 threshold 表組成「主屬 合併、全屬、HP」shorthand 清單。
+
+    範例（永恆 / 光輝）：["99 力 / 敏 / 智 / 幸", "77 全", "12 12 HP"]
+    範例（一般裝備）：["88 力 / 敏 / 智 / 幸", "66 全", "11 11 HP"]
+    僅適用於 gear 裝備（有四主屬 + 全屬 + HP 三類 threshold）；其他裝備會回傳子集。
+    """
+    parts: list[str] = []
+
+    # 主屬合併：第一個主屬完整 shorthand，其餘以 "/ <zh>" 追加
+    stat_parts: list[str] = []
+    for stat in ("STR", "DEX", "INT", "LUK"):
+        entry = equip_thresholds.get(stat)
+        if not entry:
+            continue
+        (s_val, _), _ = entry
+        if not stat_parts:
+            stat_parts.append(f"{s_val}{s_val} {_STAT_TO_ZH[stat]}")
+        else:
+            stat_parts.append(_STAT_TO_ZH[stat])
+    if stat_parts:
+        parts.append(" / ".join(stat_parts))
+
+    # 全屬（從第一個主屬取 fallback，或直接從 equip 的 "全屬性" 取）
+    all_entry = equip_thresholds.get("全屬性")
+    if all_entry is not None:
+        (all_s, _), _ = all_entry
+        parts.append(_fmt_all_stats(all_s))
+    else:
+        # 相容：某些裝備 threshold 的「全屬」資訊綁在主屬的 index [1]
+        stat_keys = [a for a in ("STR", "DEX", "INT", "LUK") if a in equip_thresholds]
+        if stat_keys:
+            _, all_stats = equip_thresholds[stat_keys[0]]
+            if all_stats:
+                all_s, _ = all_stats
+                parts.append(_fmt_all_stats(all_s))
+
+    hp_entry = equip_thresholds.get("MaxHP")
+    if hp_entry is not None:
+        (hp_s, _), _ = hp_entry
+        parts.append(_fmt_hp(hp_s))
+
+    return parts
+
+
 def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
     """自訂模式的條件摘要。"""
     fixed = [lc for lc in custom_lines if lc.position != 0]
@@ -671,13 +753,14 @@ def _generate_custom_summary(custom_lines: list[LineCondition]) -> list[str]:
 
 
 def generate_condition_summary(config: AppConfig) -> list[str]:
-    """根據 config 產生人可讀的條件描述（顯示在 UI 上）。"""
+    """根據 config 產生人可讀的條件描述（顯示在 UI 上）。
+
+    v3: 採用社群慣用超短標記法（99 力 / 77 全 / 12 12 HP / 33 爆 / -1 -1 冷卻）。
+    """
     if not config.use_preset:
         return _generate_custom_summary(config.custom_lines)
 
     equip = config.equipment_type
-    # R1: 手套/帽子 已合併進 gear；equip 直接作為 THRESHOLD_TABLE key，無需解析
-    resolved = equip
     attr = config.target_attribute
     num_lines = get_num_lines(config.cube_type)
 
@@ -693,25 +776,24 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     if attr == _ATTACK_CONVERTIBLE:
         if equip != "輔助武器 (副手)":
             return ["無法產生條件：『物理/魔法攻擊力 (可轉換)』僅適用於輔助武器 (副手)"]
-        equip_thresholds = THRESHOLD_TABLE.get(resolved, {})
+        equip_thresholds = THRESHOLD_TABLE.get(equip, {})
         phys = equip_thresholds.get("物理攻擊力")
         magic = equip_thresholds.get("魔法攻擊力")
         if not phys or not magic:
             return ["無法產生條件：裝備類型或屬性不正確"]
-        (phys_s, phys_r), _ = phys
-        (magic_s, magic_r), _ = magic
         if num_lines == 2:
+            # 絕對附加副手：保留 v2 風格（雙排同屬性約束），但改用「日冕」術語
+            (phys_s, _), _ = phys
+            (magic_s, _), _ = magic
             return [
                 "兩排需同屬性（全物攻 或 全魔攻）且符合:",
                 f"  · 物理攻擊力 {phys_s}%",
                 f"  · 魔法攻擊力 {magic_s}%",
-                "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
+                _SUB_WEAPON_DAYGUAN_NOTE,
             ]
+        # 3-line 副手：R3 shorthand「三物 / 三魔」
         return [
-            "三排需同屬性（全物攻 或 全魔攻）且符合:",
-            f"  · 物理攻擊力 {phys_s}% or {phys_r}%",
-            f"  · 魔法攻擊力 {magic_s}% or {magic_r}%",
-            "(副手可於遊戲內整件互轉物攻／魔攻，混合洗出不算合格)",
+            f"三物 / 三魔{_SUB_WEAPON_DAYGUAN_NOTE}",
         ]
 
     # FR-3 縱深防禦：is_glove / is_hat 僅在 gear 裝備上有意義
@@ -719,66 +801,88 @@ def generate_condition_summary(config: AppConfig) -> list[str]:
     is_glove = config.is_glove and is_gear
     is_hat = config.is_hat and is_gear
 
-    # 絕對附加方塊：白名單 — 必須在所有屬性之前（與 check() dispatch 順序一致）
+    # 絕對附加方塊：白名單（2-line）
     if num_lines == 2 and config.cube_type in _TWO_LINE_CUBE_TYPES:
-        # 所有屬性 + 絕對附加：列出所有主屬的白名單組合
         if attr == "所有屬性":
-            return _generate_absolute_all_attrs_summary(resolved, is_glove, is_hat)
-        thresholds = THRESHOLD_TABLE.get(resolved, {}).get(attr)
+            # 與 3-line 同樣的防呆
+            if attr not in EQUIPMENT_ATTRIBUTES.get(equip, []):
+                return ["無法產生條件：『所有屬性』僅適用於永恆 / 光輝與一般裝備"]
+            return _generate_absolute_all_attrs_summary(equip, is_glove, is_hat)
+        thresholds = THRESHOLD_TABLE.get(equip, {}).get(attr)
         if not thresholds:
             return ["無法產生條件：裝備類型或屬性不正確"]
-        (s_val, _r_val), _all_stats_thresholds = thresholds
-        return _generate_absolute_summary(
-            resolved, is_glove, is_hat, attr, s_val,
-        )
+        (s_val, _r_val), _all = thresholds
+        return _generate_absolute_summary(equip, is_glove, is_hat, attr, s_val)
 
-    # 所有屬性：列出所有可接受的屬性（非絕對附加）
+    # 所有屬性（非絕對附加、3-line）
+    # 防呆：「所有屬性」僅 gear 裝備合法；避免非 gear 產生空 / 畸形輸出
     if attr == "所有屬性":
-        return _generate_all_attrs_summary(resolved, is_glove, is_hat, num_lines)
+        if attr not in EQUIPMENT_ATTRIBUTES.get(equip, []):
+            return ["無法產生條件：『所有屬性』僅適用於永恆 / 光輝與一般裝備"]
+        return _generate_all_attrs_summary(equip, is_glove, is_hat, num_lines)
 
-    thresholds = THRESHOLD_TABLE.get(resolved, {}).get(attr)
+    # 主武器 / 徽章：不論選物攻或魔攻，都以「三物 / 魔」呈現（FR-20）
+    if equip == "主武器 / 徽章 (米特拉)" and num_lines == 3:
+        return ["三物 / 魔（支援 3S、雙 S）"]
+
+    thresholds = THRESHOLD_TABLE.get(equip, {}).get(attr)
     if not thresholds:
         return ["無法產生條件：裝備類型或屬性不正確"]
 
-    (s_val, r_val), all_stats_thresholds = thresholds
+    (s_val, _r_val), all_stats_thresholds = thresholds
 
     # 萌獸：三排同屬性，不分 S潛/罕見
     if equip == "萌獸":
         return [f"三排: {attr} ≥ {s_val}%"]
 
-    # 非絕對附加的 2-line cube（預留）
+    # 非絕對附加的 2-line cube（目前未開放；保留精簡格式）
     if num_lines == 2:
-        parts = [f"  · {attr} {s_val}%"]
-        if attr in _STATS_WITH_ALL_STATS and all_stats_thresholds:
-            all_s, _all_r = all_stats_thresholds
-            parts.append(f"  · 全屬性 {all_s}%")
-        if is_glove:
-            parts.append("  · 爆擊傷害 3%")
-        if is_hat:
-            parts.append("  · 技能冷卻時間 -1 秒")
-        if len(parts) == 1:
-            return [f"兩排: {attr} {s_val}%"]
-        return ["兩排需符合以下任一:"] + parts
+        return [f"兩排: {attr} {s_val}%"]
 
-    # 3-line cube（珍貴/恢復）
-    parts = [f"  · {attr} {s_val}% or {r_val}%"]
+    # 3-line gear cube（珍貴 / 恢復） — R3 shorthand
+    return _generate_gear_summary_3line(
+        equip, attr, s_val, all_stats_thresholds, is_glove, is_hat,
+    )
 
-    # STR/DEX/INT/LUK 自動含全屬性
-    if attr in _STATS_WITH_ALL_STATS and all_stats_thresholds:
-        all_s, all_r = all_stats_thresholds
-        parts.append(f"  · 全屬性 {all_s}% or {all_r}%")
 
+def _generate_gear_summary_3line(
+    equip: str,
+    attr: str,
+    s_val: int,
+    all_stats_thresholds: tuple[int, int] | None,
+    is_glove: bool,
+    is_hat: bool,
+) -> list[str]:
+    """3-line gear cube（珍貴 / 恢復）的 shorthand 摘要。"""
+    parts: list[str] = []
+
+    if attr in _STATS_WITH_ALL_STATS:
+        parts.append(_fmt_stat_shorthand(attr, s_val))
+        if all_stats_thresholds:
+            all_s, _ = all_stats_thresholds
+            parts.append(_fmt_all_stats(all_s))
+    elif attr == "全屬性":
+        parts.append(_fmt_all_stats(s_val))
+    elif attr == "MaxHP":
+        parts.append(_fmt_hp(s_val))
+        # 主屬 / HP 目標時補全屬 fallback（但 3-line 判定本就接受全屬，只是顯示加註）
+        # 取該裝備的全屬門檻
+        equip_thresholds = THRESHOLD_TABLE.get(equip, {})
+        all_entry = equip_thresholds.get("全屬性")
+        if all_entry:
+            (all_s, _), _ = all_entry
+            parts.append(_fmt_all_stats(all_s))
+    else:
+        parts.append(f"{attr} {s_val}%")
+
+    # 子類別附加項（FR-19）：3-line 手套 = 雙爆（不含 %）、帽子 = -1 或 -2 冷卻
     if is_glove:
-        parts.append("  · 爆擊傷害（雙爆）")
-
+        parts.append("雙爆")
     if is_hat:
-        parts.append("  · 技能冷卻時間 -1 秒 / -2 秒")
+        parts.append("-1 或 -2 冷卻")
 
-    if len(parts) == 1:
-        return [f"每排: {attr} {s_val}% or {r_val}%"]
-    result = ["每排需符合以下任一:"] + parts
-    result.append("  (支援 3S、雙 S)")
-    return result
+    body = "、".join(parts)
+    return [f"支援 {body}（3S、雙 S 含全屬混搭）"]
 
 
 def _generate_absolute_summary(
@@ -788,116 +892,87 @@ def _generate_absolute_summary(
     target_attr: str,
     s_val: int,
 ) -> list[str]:
-    """絕對附加方塊白名單的條件摘要（FR-16）。"""
+    """絕對附加方塊白名單摘要（R3 shorthand）。
+
+    單一目標屬性時：主 shorthand + 子類別附加；主屬 / HP 目標加註 77 全 fallback。
+    """
     equip_thresholds = THRESHOLD_TABLE.get(resolved_equip, {})
-    parts: list[str] = []
-    added_keys: set[str] = set()
 
-    # (a) 目標屬性 × 2
-    label = "(同種主屬)" if target_attr in _STATS_WITH_ALL_STATS else ""
-    parts.append(f"  · {target_attr} {s_val}% × 2{f' {label}' if label else ''}")
-    added_keys.add(target_attr)
+    # 主條目 shorthand
+    if target_attr in _STATS_WITH_ALL_STATS:
+        main = _fmt_stat_shorthand(target_attr, s_val)
+    elif target_attr == "全屬性":
+        main = _fmt_all_stats(s_val)
+    elif target_attr == "MaxHP":
+        main = _fmt_hp(s_val)
+    else:
+        # 非 gear 屬性（主武器 / 副手攻擊力等，絕對附加不常見）
+        main = f"{target_attr} {s_val}%"
 
-    # (b) 全屬 × 2（避免與 target 重複）
-    all_entry = equip_thresholds.get("全屬性")
-    if all_entry and "全屬性" not in added_keys:
-        (all_s, _), _ = all_entry
-        parts.append(f"  · 全屬性 {all_s}% × 2")
-        added_keys.add("全屬性")
-
-    # (c) MaxHP × 2（避免與 target 重複）
-    hp_entry = equip_thresholds.get("MaxHP")
-    if hp_entry and "MaxHP" not in added_keys:
-        (hp_s, _), _ = hp_entry
-        parts.append(f"  · MaxHP {hp_s}% × 2")
-        added_keys.add("MaxHP")
-
-    # (d) 冷卻 × 2（帽子）
-    if is_hat:
-        parts.append("  · 技能冷卻時間 -1 秒 × 2")
-
-    # (e) 爆擊 × 2（手套）
+    # 子類別附加項
+    extras: list[str] = []
     if is_glove:
-        parts.append("  · 爆擊傷害 3% × 2")
+        extras.append("33 爆")
+    if is_hat:
+        extras.append("-1 -1 冷卻")
 
-    return ["僅支援以下同種 × 2 組合:"] + parts
+    if extras:
+        head = main + "、" + "、".join(extras)
+    else:
+        head = main
+
+    # 主屬 / HP 目標：加註「也接受 7 7 全屬」(FR-23)
+    if target_attr in _STATS_WITH_ALL_STATS or target_attr == "MaxHP":
+        all_entry = equip_thresholds.get("全屬性")
+        if all_entry:
+            (all_s, _), _ = all_entry
+            return [
+                f"{head}；也接受 {all_s} {all_s} 全屬{_ABSOLUTE_ALL_STATS_FALLBACK_NOTE}",
+            ]
+
+    return [head]
 
 
 def _generate_absolute_all_attrs_summary(
     resolved_equip: str, is_glove: bool, is_hat: bool,
 ) -> list[str]:
-    """絕對附加 + 所有屬性的白名單摘要。"""
+    """絕對附加 + 所有屬性白名單的 shorthand 摘要（R3）。
+
+    輸出如：`99 力 / 敏 / 智 / 幸、77 全、12 12 HP`（永恆）。
+    """
     equip_thresholds = THRESHOLD_TABLE.get(resolved_equip, {})
-    parts: list[str] = []
-    for attr in ("STR", "DEX", "INT", "LUK"):
-        if attr in equip_thresholds:
-            (s_val, _), _ = equip_thresholds[attr]
-            parts.append(f"  · {attr} {s_val}% × 2")
-    all_entry = equip_thresholds.get("全屬性")
-    if all_entry:
-        (all_s, _), _ = all_entry
-        parts.append(f"  · 全屬性 {all_s}% × 2")
-    hp_entry = equip_thresholds.get("MaxHP")
-    if hp_entry:
-        (hp_s, _), _ = hp_entry
-        parts.append(f"  · MaxHP {hp_s}% × 2")
-    if is_hat:
-        parts.append("  · 技能冷卻時間 -1 秒 × 2")
+    parts = _collect_gear_shorthand_parts(equip_thresholds)
+    if not parts:
+        return ["無法產生條件：裝備類型或屬性不正確"]
+
+    # 絕對附加：雙排特殊條件使用明確數值
     if is_glove:
-        parts.append("  · 爆擊傷害 3% × 2")
-    return ["僅支援以下同種 × 2 組合:"] + parts
+        parts.append("33 爆")
+    if is_hat:
+        parts.append("-1 -1 冷卻")
+
+    return ["、".join(parts)]
 
 
 def _generate_all_attrs_summary(
     equip: str, is_glove: bool, is_hat: bool, num_lines: int = 3,
 ) -> list[str]:
-    """所有屬性模式的條件摘要。"""
+    """所有屬性模式的條件摘要（非絕對附加，R3 shorthand）。"""
     equip_thresholds = THRESHOLD_TABLE.get(equip, {})
-    parts: list[str] = []
+    parts = _collect_gear_shorthand_parts(equip_thresholds)
+    if not parts:
+        return ["無法產生條件：裝備類型或屬性不正確"]
 
-    # 逐一列出每個屬性
-    for attr in ("STR", "DEX", "INT", "LUK"):
-        if attr not in equip_thresholds:
-            continue
-        (s_val, r_val), _ = equip_thresholds[attr]
-        if num_lines == 2:
-            parts.append(f"  · {attr} {s_val}%")
-        else:
-            parts.append(f"  · {attr} {s_val}% or {r_val}%")
-
-    # 全屬性（從第一個主屬性取）
-    stat_attrs = [a for a in ("STR", "DEX", "INT", "LUK") if a in equip_thresholds]
-    if stat_attrs:
-        _, all_stats = equip_thresholds[stat_attrs[0]]
-        if all_stats:
-            all_s, all_r = all_stats
-            if num_lines == 2:
-                parts.append(f"  · 全屬性 {all_s}%")
-            else:
-                parts.append(f"  · 全屬性 {all_s}% or {all_r}%")
-
-    if "MaxHP" in equip_thresholds:
-        (s_val, r_val), _ = equip_thresholds["MaxHP"]
-        if num_lines == 2:
-            parts.append(f"  · MaxHP {s_val}%")
-        else:
-            parts.append(f"  · MaxHP {s_val}% or {r_val}%")
-
+    # 3-line 珍貴 / 恢復：雙爆 / -1 或 -2 冷卻（模糊語，支援多排）
     if is_glove:
-        parts.append("  · 爆擊傷害 3%")
+        parts.append("雙爆")
     if is_hat:
-        parts.append("  · 技能冷卻時間 -1 秒")
+        parts.append("-1 或 -2 冷卻")
 
-    # 兩個一排，減少 GUI 佔用空間
-    paired = []
-    for i in range(0, len(parts), 2):
-        if i + 1 < len(parts):
-            paired.append(parts[i] + "  " + parts[i + 1])
-        else:
-            paired.append(parts[i])
-
-    row_label = "兩排" if num_lines == 2 else "三排"
-    return [f"{row_label}需為同一屬性 (可混搭全屬性):"] + paired
+    body = "、".join(parts)
+    if num_lines == 2:
+        return [body]
+    return [f"支援 {body}（3S、雙 S 含全屬混搭）"]
 
 
 class ConditionChecker:
@@ -915,8 +990,7 @@ class ConditionChecker:
             self._custom_lines = config.custom_lines
             self._valid = True
             return
-        # R1: 手套/帽子 已合併進 gear；equip 直接作為 THRESHOLD_TABLE key
-        resolved = equip
+        resolved = equip  # v3: equipment_type 即為 THRESHOLD_TABLE 的 key
         attr = config.target_attribute
 
         # 預設旗標：任何早退分支都不會讓後續屬性存取出錯
@@ -929,7 +1003,9 @@ class ConditionChecker:
             self._valid = True
             return
 
-        # FR-3 縱深防禦：is_glove / is_hat 僅在 gear 裝備上有意義
+        # FR-3 縱深防禦：即使 config.is_glove / is_hat 為 True，
+        # 若裝備類型不是 gear（永恆/光輝 或 一般裝備），強制忽略兩個旗標。
+        # 防止手改 config 或未來 UI bug 造成主武器 / 副手 / 萌獸 的誤判。
         is_gear = equip in _GEAR_EQUIP
         self._is_glove = config.is_glove and is_gear
         self._is_hat = config.is_hat and is_gear
