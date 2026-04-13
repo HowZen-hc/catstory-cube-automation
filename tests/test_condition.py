@@ -1,4 +1,12 @@
-from app.core.condition import ConditionChecker, generate_condition_summary, get_num_lines, parse_potential_line, parse_potential_lines
+from app.core.condition import (
+    EQUIPMENT_ATTRIBUTES,
+    ConditionChecker,
+    generate_condition_summary,
+    get_custom_attributes,
+    get_num_lines,
+    parse_potential_line,
+    parse_potential_lines,
+)
 from app.models.config import AppConfig, LineCondition
 from app.models.potential import PotentialLine
 
@@ -1159,6 +1167,61 @@ class TestConditionCheckerWeapon:
             PotentialLine("魔法攻擊力%", 9),
         ]
         assert checker.check(lines) is True
+
+
+class TestSubWeaponAttributesR2:
+    """v3 R2: 副手目標屬性欄位縮減為單一「可轉換」選項（FR-13, AC-3）。
+    自訂模式保留物攻 / 魔攻（FR-15, AC-5）。
+    """
+
+    def test_sub_weapon_attributes_single_option(self):
+        """AC-3 / Signal 4.1: EQUIPMENT_ATTRIBUTES['輔助武器 (副手)'] == [可轉換]"""
+        assert EQUIPMENT_ATTRIBUTES["輔助武器 (副手)"] == [
+            "物理/魔法攻擊力 (可轉換)"
+        ]
+
+    def test_custom_mode_sub_weapon_retains_phys_magic(self):
+        """AC-5 / FR-15 / Signal 4.3: 自訂模式 + 輔助武器仍可選物攻 / 魔攻"""
+        attrs = get_custom_attributes("輔助武器 (副手)")
+        assert "物理攻擊力" in attrs
+        assert "魔法攻擊力" in attrs
+
+
+class TestGetCustomAttributesSubtype:
+    """v3 R2: get_custom_attributes 的 is_glove / is_hat 旗標路由（FR-3 gated）。"""
+
+    def test_eternal_glove_returns_crit_option(self):
+        attrs = get_custom_attributes("永恆 / 光輝", is_glove=True)
+        assert "爆擊傷害" in attrs
+        assert "技能冷卻時間" not in attrs
+
+    def test_eternal_hat_returns_cooldown_option(self):
+        attrs = get_custom_attributes("永恆 / 光輝", is_hat=True)
+        assert "技能冷卻時間" in attrs
+        assert "爆擊傷害" not in attrs
+
+    def test_normal_gear_glove_returns_crit_option(self):
+        """一般裝備 + is_glove 亦套用 gear_glove 屬性集。"""
+        attrs = get_custom_attributes(
+            "一般裝備 (神秘、漆黑、頂培)", is_glove=True,
+        )
+        assert "爆擊傷害" in attrs
+
+    def test_gear_no_flag_returns_basic_attrs(self):
+        attrs = get_custom_attributes("永恆 / 光輝")
+        assert "爆擊傷害" not in attrs
+        assert "技能冷卻時間" not in attrs
+        assert "STR" in attrs
+
+    def test_non_gear_ignores_subtype_flags(self):
+        """FR-3 縱深防禦：主武器 + is_glove=True → 不走 gear_glove 分支。"""
+        attrs = get_custom_attributes(
+            "主武器 / 徽章 (米特拉)", is_glove=True,
+        )
+        assert "爆擊傷害" not in attrs
+        # 武器類屬性保持原樣
+        assert "物理攻擊力" in attrs
+        assert "魔法攻擊力" in attrs
 
 
 class TestConditionCheckerSubWeaponConvertible:

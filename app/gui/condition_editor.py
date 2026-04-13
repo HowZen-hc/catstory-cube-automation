@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
@@ -12,6 +13,7 @@ from PyQt6.QtWidgets import (
 from app.core.condition import (
     EQUIPMENT_ATTRIBUTES,
     EQUIPMENT_TYPES,
+    GEAR_EQUIP_TYPES,
     generate_condition_summary,
     get_custom_attributes,
     get_num_lines,
@@ -23,6 +25,21 @@ _MAX_CUSTOM_ROWS = 5
 _MODE_PRESET = "預設規則"
 _MODE_CUSTOM = "自訂條件"
 _MODES = [_MODE_PRESET, _MODE_CUSTOM]
+
+# 支援手套 / 帽子子類別的 gear 裝備集合（共用自 app.core.condition 的 single source of truth）
+_GEAR_EQUIP = GEAR_EQUIP_TYPES
+
+# 副手目標屬性欄位寬度（完整顯示「物理/魔法攻擊力 (可轉換)」）
+_SUB_WEAPON_ATTR_WIDTH = 260
+_DEFAULT_ATTR_WIDTH = 150
+
+# FR-10：checkbox 說明文字（同時覆蓋 3-line 與 2-line 語意）
+_CHECKBOX_TOOLTIP = (
+    "勾選後會加入特殊排預檢：\n"
+    "• 手套：至少 1 排爆擊傷害 3%（絕對附加須 2 排）\n"
+    "• 帽子：至少 1 排冷卻 -1 秒，含 -2（絕對附加須 2 排）\n"
+    "若該排不需特殊條件（例：帽子職業不吃冷卻），保持未勾"
+)
 
 
 class _CustomRowWidget(QWidget):
@@ -89,6 +106,15 @@ class ConditionEditor(QGroupBox):
         self.equip_combo.addItems([t for t in EQUIPMENT_TYPES if t != "萌獸"])
         self.equip_combo.currentTextChanged.connect(self._on_equip_changed)
         row1.addWidget(self.equip_combo)
+        # 手套 / 帽子 checkbox（mutually exclusive；僅在 gear + 預設模式顯示）
+        self.glove_check = QCheckBox("手套")
+        self.glove_check.setToolTip(_CHECKBOX_TOOLTIP)
+        self.glove_check.toggled.connect(self._on_glove_toggled)
+        row1.addWidget(self.glove_check)
+        self.hat_check = QCheckBox("帽子")
+        self.hat_check.setToolTip(_CHECKBOX_TOOLTIP)
+        self.hat_check.toggled.connect(self._on_hat_toggled)
+        row1.addWidget(self.hat_check)
         row1.addStretch()
         self._equip_row = QWidget()
         self._equip_row.setLayout(row1)
@@ -165,9 +191,13 @@ class ConditionEditor(QGroupBox):
         removable = index > 0  # 第一排不可移除
         row = _CustomRowWidget(index, removable)
 
-        # 填入屬性選單
+        # 填入屬性選單（含手套 / 帽子子類別旗標）
         equip = self.equip_combo.currentText()
-        custom_attrs = get_custom_attributes(equip)
+        custom_attrs = get_custom_attributes(
+            equip,
+            is_glove=self.glove_check.isChecked(),
+            is_hat=self.hat_check.isChecked(),
+        )
         row.attr_combo.addItems(custom_attrs)
 
         if lc:
@@ -317,6 +347,7 @@ class ConditionEditor(QGroupBox):
     def _on_mode_changed(self, mode: str) -> None:
         self._preset_widget.setVisible(mode == _MODE_PRESET)
         self._custom_widget.setVisible(mode == _MODE_CUSTOM)
+        self._update_subtype_visibility()
         # 切換模式時重建自訂排
         if mode == _MODE_CUSTOM:
             self._reset_custom_rows()
@@ -330,6 +361,22 @@ class ConditionEditor(QGroupBox):
         self.attr_combo.clear()
         self.attr_combo.addItems(attrs)
         self.attr_combo.blockSignals(False)
+        # 副手目標屬性欄位較寬（完整顯示「物理/魔法攻擊力 (可轉換)」）
+        if equip_type == "輔助武器 (副手)":
+            self.attr_combo.setMinimumWidth(_SUB_WEAPON_ATTR_WIDTH)
+        else:
+            self.attr_combo.setMinimumWidth(_DEFAULT_ATTR_WIDTH)
+        # 切換到非 gear 裝備時清空 subtype 旗標（避免跨裝備殘留）
+        if equip_type not in _GEAR_EQUIP:
+            self.glove_check.blockSignals(True)
+            self.hat_check.blockSignals(True)
+            self.glove_check.setChecked(False)
+            self.hat_check.setChecked(False)
+            self.glove_check.setEnabled(True)
+            self.hat_check.setEnabled(True)
+            self.glove_check.blockSignals(False)
+            self.hat_check.blockSignals(False)
+        self._update_subtype_visibility()
         self._on_attr_changed(self.attr_combo.currentText())
         # 切換裝備類型時：比對模式回預設 + 自訂排重建
         self.mode_combo.setCurrentText(_MODE_PRESET)
@@ -337,6 +384,38 @@ class ConditionEditor(QGroupBox):
 
     def _on_attr_changed(self, _attr: str) -> None:
         self._update_summary()
+
+    def _on_glove_toggled(self, checked: bool) -> None:
+        """勾「手套」→ 停用「帽子」並取消其勾選；反之亦然。"""
+        if checked:
+            self.hat_check.blockSignals(True)
+            self.hat_check.setChecked(False)
+            self.hat_check.blockSignals(False)
+            self.hat_check.setEnabled(False)
+        else:
+            self.hat_check.setEnabled(True)
+        self._reset_custom_rows()
+        self._update_summary()
+
+    def _on_hat_toggled(self, checked: bool) -> None:
+        """勾「帽子」→ 停用「手套」；取消勾選後恢復可用。"""
+        if checked:
+            self.glove_check.blockSignals(True)
+            self.glove_check.setChecked(False)
+            self.glove_check.blockSignals(False)
+            self.glove_check.setEnabled(False)
+        else:
+            self.glove_check.setEnabled(True)
+        self._reset_custom_rows()
+        self._update_summary()
+
+    def _update_subtype_visibility(self) -> None:
+        """glove / hat checkbox 僅在 gear 裝備 + 預設模式下顯示。"""
+        is_gear = self.equip_combo.currentText() in _GEAR_EQUIP
+        is_preset = self._current_mode() == _MODE_PRESET
+        visible = is_gear and is_preset
+        self.glove_check.setVisible(visible)
+        self.hat_check.setVisible(visible)
 
     # ── 自訂模式 handlers ──
 
@@ -417,6 +496,8 @@ class ConditionEditor(QGroupBox):
                 cube_type=self._cube_type,
                 equipment_type=self.equip_combo.currentText(),
                 target_attribute=self.attr_combo.currentText(),
+                is_glove=self.glove_check.isChecked(),
+                is_hat=self.hat_check.isChecked(),
                 use_preset=True,
             )
         custom_lines = []
@@ -429,6 +510,8 @@ class ConditionEditor(QGroupBox):
         return AppConfig(
             cube_type=self._cube_type,
             equipment_type=self.equip_combo.currentText(),
+            is_glove=self.glove_check.isChecked(),
+            is_hat=self.hat_check.isChecked(),
             use_preset=False,
             custom_lines=custom_lines,
         )
@@ -439,6 +522,8 @@ class ConditionEditor(QGroupBox):
         mode = self._current_mode()
         config.equipment_type = self.equip_combo.currentText()
         config.target_attribute = self.attr_combo.currentText()
+        config.is_glove = self.glove_check.isChecked()
+        config.is_hat = self.hat_check.isChecked()
         config.use_preset = (mode == _MODE_PRESET)
         config.custom_lines = [
             LineCondition(
@@ -456,6 +541,19 @@ class ConditionEditor(QGroupBox):
         attr_idx = self.attr_combo.findText(config.target_attribute)
         if attr_idx >= 0:
             self.attr_combo.setCurrentIndex(attr_idx)
+
+        # 同步手套 / 帽子旗標（AppConfig.__post_init__ 已保證互斥）；
+        # blockSignals 避免觸發 _on_*_toggled 的 mutex / summary 循環
+        self.glove_check.blockSignals(True)
+        self.hat_check.blockSignals(True)
+        self.glove_check.setChecked(config.is_glove)
+        self.hat_check.setChecked(config.is_hat)
+        # 同步 disabled 狀態：有旗標勾選時另一個 disable
+        self.glove_check.setEnabled(not config.is_hat)
+        self.hat_check.setEnabled(not config.is_glove)
+        self.glove_check.blockSignals(False)
+        self.hat_check.blockSignals(False)
+        self._update_subtype_visibility()
 
         # 從 config 推導模式（合併後只有 PRESET / CUSTOM 兩種）
         mode = _MODE_PRESET if config.use_preset else _MODE_CUSTOM
