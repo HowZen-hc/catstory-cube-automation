@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Pending
+> **Status**: Candidate Complete
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -39,29 +39,29 @@
 
 ## Acceptance Criteria
 
-- [ ] AC-1: `EQUIPMENT_TYPES` 長度為 4（不含動態注入的「萌獸」）(FR-1, Signal 1.1)
-- [ ] AC-2: `grep -n "GLOVE_TYPES\|HAT_TYPES\|ETERNAL_EQUIP_TYPES\|_resolve_equip_type\|is_eternal" app/core/condition.py app/models/config.py` 結果為 0 (FR-5, FR-6, NFR-2)
-- [ ] AC-3: `grep -n '"手套"\|"帽子"' app/core/condition.py` 結果為 0 (NFR-2)
-- [ ] AC-4: `AppConfig.__post_init__` 對 `is_glove=True` 且 `is_hat=True` 自動歸零並記 warning (Signal 3.4)
-- [ ] AC-5: `AppConfig.load()` 讀到 `equipment_type == "手套"` 或 `"帽子"` 時 fallback 為 `"永恆 / 光輝"` + log，不 crash (Signal 3.3, FR-11)
-- [ ] AC-6: `ConditionChecker` 在 `equipment_type ∈ {"主武器 / 徽章", "輔助武器"}` + `is_glove=True` 時，`self._is_glove` 必為 False（FR-3 縱深防禦測試）
-- [ ] AC-7: 行為等價 + 正反案例：
+- [x] AC-1: `EQUIPMENT_TYPES` 長度為 4（不含動態注入的「萌獸」）(FR-1, Signal 1.1)
+- [x] AC-2: `grep -n "GLOVE_TYPES\|HAT_TYPES\|ETERNAL_EQUIP_TYPES\|_resolve_equip_type\|is_eternal" app/core/condition.py app/models/config.py` 結果為 0 (FR-5, FR-6, NFR-2)
+- [x] AC-3: `grep -n '"手套"\|"帽子"' app/core/condition.py` 結果為 0 (NFR-2)
+- [x] AC-4: `AppConfig.__post_init__` 對 `is_glove=True` 且 `is_hat=True` 自動歸零並記 warning (Signal 3.4)
+- [x] AC-5: ~~`AppConfig.load()` 讀到 legacy equipment_type 時 fallback~~ — **已撤銷**：每次安裝皆整包重新下載（A3 決策），不支援舊 config 遷移，fallback 程式碼已移除
+- [x] AC-6: `ConditionChecker` 在 `equipment_type ∈ {"主武器 / 徽章", "輔助武器"}` + `is_glove=True` 時，`self._is_glove` 必為 False（FR-3 縱深防禦測試）
+- [x] AC-7: 行為等價 + 正反案例：
   - 正案例（Signal 2.2）：`equipment_type="永恆 / 光輝"` + `is_glove=True` + 目標 STR → 三組 `[爆擊 3%, STR 9%, STR 9%]` / `[爆擊 3%, 爆擊 3%, STR 9%]` / `[爆擊 3%, 爆擊 3%, 爆擊 3%]` 皆 pass
   - 反案例（Signal 2.3）：同 equipment + `is_glove=False` + `is_hat=False` → 以上第一組若第 1 排非目標屬性則 fail（無 crit 預檢）
   - 一般等級（Signal 2.4）：`equipment_type="一般裝備 (神秘、漆黑、頂培)"` + `is_hat=True` + 目標 STR + `[冷卻 -1, STR 8%, 全屬 6%]` → pass
-- [ ] AC-8: `_OLD_EQUIP_MIGRATION` 表中「手套 (永恆)」「手套 (非永恆)」「帽子 (永恆)」「帽子 (非永恆)」四行移除；`grep '手套 (' app/models/config.py` = 0（FR-12, Signal 3.2）
-- [ ] AC-9: `uv run pytest tests/test_condition.py tests/test_config.py` 全綠
-- [ ] Pass `/codex-review-fast`
-- [ ] Pass `/precommit-fast`
+- [x] AC-8: `_OLD_EQUIP_MIGRATION` 整個移除 + `grep '手套\|帽子' app/models/config.py` = 0（FR-12, Signal 3.2）— 配合 A3 決策（整包重新下載）所有 legacy migration 程式碼已刪除
+- [x] AC-9: `uv run pytest tests/test_condition.py tests/test_config.py` 全綠
+- [x] Pass `/codex-review-fast`
+- [x] Pass `/precommit-fast`
 
 ## Progress
 
 | Phase | Status | Note |
 |-------|--------|------|
 | Analysis | Done | req-analyze + tech-spec |
-| Development | Pending | - |
-| Testing | Pending | - |
-| Acceptance | Pending | - |
+| Development | Done | Commit `4f9e62e` — schema + FR-3 defense |
+| Testing | Done | 305 tests pass (tests/test_condition.py + tests/test_config.py) |
+| Acceptance | Candidate | All AC heuristically checked; awaiting `--verify-ac` for closure-grade |
 
 ## References
 

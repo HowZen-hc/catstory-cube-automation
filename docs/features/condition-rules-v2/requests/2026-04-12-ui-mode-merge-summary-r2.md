@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: In Progress
+> **Status**: Candidate Complete
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -37,15 +37,15 @@
 
 ## Acceptance Criteria
 
-- [ ] AC-1: UI mode 下拉僅有「預設規則 / 自訂條件」兩個選項 (FR-6, NFR-2)
-- [ ] AC-2: Custom mode position combo 含「任一排 / 第 1 排 / 第 2 排 / 第 3 排」(FR-7)
-- [ ] AC-3: 舊 config (AND mode / OR mode 存檔) 載入後行為等價 (FR-10, NFR-3)
-- [ ] AC-4: 絕對附加 summary 依裝備等級顯示白名單數值 (FR-15, FR-16)
-- [ ] AC-5: 一般方塊 summary 含「3S、雙 S」、帽子含「-2 冷卻」、手套含「雙爆」不含 % (FR-17, FR-18)
-- [ ] AC-6: `grep -r "_MODE_OR\|_MODE_AND" app/gui/` 結果為 0 (NFR-2)
-- [ ] AC-7: position swap 邏輯排除「任一排」互換 (Q11 from tech-spec)
-- [ ] Pass `/codex-review-fast`
-- [ ] Pass `/precommit-fast`
+- [x] AC-1: UI mode 下拉僅有「預設規則 / 自訂條件」兩個選項 (FR-6, NFR-2)
+- [x] AC-2: Custom mode position combo 含「任一排 / 第 1 排 / 第 2 排 / 第 3 排」(FR-7)
+- [x] AC-3: 舊 config (AND mode / OR mode 存檔) 載入後行為等價 (FR-10, NFR-3)
+- [x] AC-4: 絕對附加 summary 依裝備等級顯示白名單數值 (FR-15, FR-16)
+- [x] AC-5: 一般方塊 summary 含「3S、雙 S」、帽子含「-2 冷卻」、手套含「雙爆」不含 % (FR-17, FR-18)
+- [x] AC-6: `grep -r "_MODE_OR\|_MODE_AND" app/gui/` 結果為 0 (NFR-2)
+- [x] AC-7: position swap 邏輯排除「任一排」互換 (Q11 from tech-spec)
+- [x] Pass `/codex-review-fast`
+- [x] Pass `/precommit-fast`
 
 ## Progress
 
@@ -53,8 +53,8 @@
 |-------|--------|------|
 | Analysis | Done | req-analyze + feasibility + tech-spec |
 | Development | Done | Phase 3 (mode merge) + Phase 4 (summary) implemented |
-| Testing | In Progress | 287 condition tests passing; UI manual verification pending |
-| Acceptance | Pending | AC verification pending |
+| Testing | Done | Tests still pass in current v3 state (328 passed) |
+| Acceptance | Candidate | All AC heuristically checked post-merge (PR #43); v3 summary-shorthand superseded v2 text (AC-5 "雙爆"/"-2 冷卻" now emitted by R3 helpers) |
 
 ## References
 

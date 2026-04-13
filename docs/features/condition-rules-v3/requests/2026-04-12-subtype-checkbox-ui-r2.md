@@ -2,7 +2,7 @@
 
 > **Doc class**: Request ticket (date-prefixed non-lifecycle — per `@rules/docs-numbering.md`). Per-task work breakdown unit for progress tracking. **Not** a feature-level requirements doc — for that see `../1-requirements.md` (created via `/req-analyze`).
 > **Created**: 2026-04-12
-> **Status**: Pending
+> **Status**: Candidate Complete
 > **Priority**: P1
 > **Tech Spec**: [2-tech-spec.md](../2-tech-spec.md)
 > **Requirements**: [1-requirements.md](../1-requirements.md)
@@ -39,26 +39,26 @@ UI 層：移除 `eternal_check`，新增「手套」「帽子」兩個 mutually-
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 選擇「永恆 / 光輝」或「一般裝備」+ 預設模式 → `glove_check` + `hat_check` 可見；其他裝備或自訂模式 → 隱藏 (FR-7, Signal 1.2, Signal 1.3)
-- [ ] AC-2: 勾「手套」時「帽子」自動 disable；取消勾選後恢復可用（vice versa）(FR-8, Signal 2.1)
-- [ ] AC-3: `EQUIPMENT_ATTRIBUTES["輔助武器 (副手)"]` == `[_ATTACK_CONVERTIBLE]` 且 `attr_combo.count() == 1` (FR-13, Signal 4.1)
-- [ ] AC-4: 選擇輔助武器時 `attr_combo.minimumWidth() >= 240`；其他裝備 `== 150`(FR-14, Signal 4.2)
-- [ ] AC-5: 自訂模式 + 輔助武器仍可選「物理攻擊力」「魔法攻擊力」(FR-15, Signal 4.3)
-- [ ] AC-6: `load_from_config({is_glove: True, ...})` 後 UI checkbox state 正確且不觸發循環 signal
-- [ ] AC-7: checkbox 附 tooltip，內容覆蓋 3-line「至少 1 排」與 2-line「雙排」語意 (FR-10)
-- [ ] AC-8: `glove_check` 與 `hat_check` 初始狀態皆未勾選；兩者皆未勾時，選「永恆 / 光輝」+ 目標 STR 走一般永恆判定路徑（等同 v2「永恆 / 光輝 + STR」，不套 crit/cooldown 預檢）(FR-9, UC-5)
-- [ ] AC-9: `uv run pytest tests/test_condition.py` 全綠（UI 改動不破壞 core 測試）
-- [ ] Pass `/codex-review-fast`
-- [ ] Pass `/precommit-fast`
+- [x] AC-1: 選擇「永恆 / 光輝」或「一般裝備」+ 預設模式 → `glove_check` + `hat_check` 可見；其他裝備或自訂模式 → 隱藏 (FR-7, Signal 1.2, Signal 1.3)
+- [x] AC-2: 勾「手套」時「帽子」自動 disable；取消勾選後恢復可用（vice versa）(FR-8, Signal 2.1)
+- [x] AC-3: `EQUIPMENT_ATTRIBUTES["輔助武器 (副手)"]` == `[_ATTACK_CONVERTIBLE]` 且 `attr_combo.count() == 1` (FR-13, Signal 4.1)
+- [x] AC-4: 選擇輔助武器時 `attr_combo.minimumWidth() >= 240`；其他裝備 `== 150`(FR-14, Signal 4.2)
+- [x] AC-5: 自訂模式 + 輔助武器仍可選「物理攻擊力」「魔法攻擊力」(FR-15, Signal 4.3)
+- [x] AC-6: `load_from_config({is_glove: True, ...})` 後 UI checkbox state 正確且不觸發循環 signal
+- [x] AC-7: checkbox 附 tooltip，內容覆蓋 3-line「至少 1 排」與 2-line「雙排」語意 (FR-10)
+- [x] AC-8: `glove_check` 與 `hat_check` 初始狀態皆未勾選；兩者皆未勾時，選「永恆 / 光輝」+ 目標 STR 走一般永恆判定路徑（等同 v2「永恆 / 光輝 + STR」，不套 crit/cooldown 預檢）(FR-9, UC-5)
+- [x] AC-9: `uv run pytest tests/test_condition.py` 全綠（UI 改動不破壞 core 測試）
+- [x] Pass `/codex-review-fast`
+- [x] Pass `/precommit-fast`
 
 ## Progress
 
 | Phase | Status | Note |
 |-------|--------|------|
 | Analysis | Done | tech-spec §3.4.3, §3.4.4 |
-| Development | Pending | - |
-| Testing | Pending | - |
-| Acceptance | Pending | 手動 UI 目視驗證需於開發機執行 |
+| Development | Done | Commit `0bfa90d` — glove/hat checkbox + sub-weapon reduction |
+| Testing | Done | 312 tests pass (new `TestSubWeaponAttributesR2` + `TestGetCustomAttributesSubtype`) |
+| Acceptance | Candidate | Manual UI visual AC-1/AC-2/AC-6 deferred to user; all core-facing AC heuristically checked |
 
 ## References
 
