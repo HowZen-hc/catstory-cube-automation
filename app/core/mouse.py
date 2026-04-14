@@ -10,7 +10,10 @@ logger = logging.getLogger(__name__)
 _VK_SPACE = 0x20
 _SCAN_SPACE = 0x39  # space 鍵的 scan code
 _INPUT_KEYBOARD = 1
+_INPUT_MOUSE = 0
 _KEYEVENTF_KEYUP = 0x0002
+_MOUSEEVENTF_LEFTDOWN = 0x0002
+_MOUSEEVENTF_LEFTUP = 0x0004
 _GAME_WINDOW_TITLE = "貓貓TMS"
 
 # 按鍵時序參數（秒）
@@ -113,6 +116,37 @@ def _send_key(vk_code: int, scan_code: int) -> int:
     return result_down + result_up
 
 
+def _send_click() -> int:
+    """於當前游標位置送出一次左鍵 down+up，回傳成功注入的事件數（0/1/2）。"""
+    inp_down = _INPUT()
+    inp_down.type = _INPUT_MOUSE
+    inp_down.union.mi.dx = 0
+    inp_down.union.mi.dy = 0
+    inp_down.union.mi.mouseData = 0
+    inp_down.union.mi.dwFlags = _MOUSEEVENTF_LEFTDOWN
+    inp_down.union.mi.time = 0
+    inp_down.union.mi.dwExtraInfo = 0
+    result_down = ctypes.windll.user32.SendInput(
+        1, ctypes.byref(inp_down), ctypes.sizeof(_INPUT)
+    )
+
+    time.sleep(_KEY_HOLD_SEC)
+
+    inp_up = _INPUT()
+    inp_up.type = _INPUT_MOUSE
+    inp_up.union.mi.dx = 0
+    inp_up.union.mi.dy = 0
+    inp_up.union.mi.mouseData = 0
+    inp_up.union.mi.dwFlags = _MOUSEEVENTF_LEFTUP
+    inp_up.union.mi.time = 0
+    inp_up.union.mi.dwExtraInfo = 0
+    result_up = ctypes.windll.user32.SendInput(
+        1, ctypes.byref(inp_up), ctypes.sizeof(_INPUT)
+    )
+
+    return result_down + result_up
+
+
 def _ensure_game_foreground() -> None:
     """如果前景不是遊戲視窗，重新拉回前景。"""
     hwnd = _game_hwnd or _find_game_hwnd()
@@ -189,6 +223,23 @@ class MouseController:
             if result < 2:
                 logger.warning("SendInput 失敗: 預期注入 2 事件，實際 %d", result)
                 return False
+        return True
+
+    def click(self, x: int, y: int) -> bool:
+        """在絕對螢幕座標 (x, y) 送出一次左鍵點擊，失敗回 False。"""
+        _ensure_game_foreground()
+
+        if self.stopped:
+            return False
+
+        if not ctypes.windll.user32.SetCursorPos(int(x), int(y)):
+            logger.warning("SetCursorPos 失敗: (%d, %d)", x, y)
+            return False
+
+        result = _send_click()
+        if result < 2:
+            logger.warning("SendInput(mouse) 失敗: 預期 2 事件，實際 %d", result)
+            return False
         return True
 
     def wait(self, ms: int | None = None) -> None:

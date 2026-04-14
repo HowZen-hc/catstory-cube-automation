@@ -45,6 +45,22 @@ class CompareFlowStrategy(CubeStrategy):
         matched = self.checker.check(after_lines)
         logger.info("#%05d 判斷結果: %s", roll_number, "✅ 符合" if matched else "❌ 不符合")
 
+        # 6.5. 命中 → 點擊送出「使用」；失敗必 raise，避免 matched=True 誤觸發 target_reached。
+        if matched:
+            region = self.config.potential_region
+            if not region.is_set():
+                raise RuntimeError(
+                    f"#{roll_number:05d} 命中但 potential_region 未設定，無法送出點擊"
+                )
+            cx = region.x + region.width // 2
+            cy = region.y + region.height // 2
+            logger.info(
+                "#%05d 命中 → 點擊 potential_region 中心 (%d, %d)",
+                roll_number, cx, cy,
+            )
+            if not self.mouse.click(cx, cy):
+                raise RuntimeError(f"#{roll_number:05d} 命中後點擊失敗")
+
         # 7. 比較新舊 → 決定按鈕 → 同步更新快取（每個分支必須明確指定）。
         #    這個分支結構是防護欄：實作 TODO 時快取規則與按鈕動作強制綁在一起，不可能漏改。
         if self._is_better(after_lines, before_lines):
