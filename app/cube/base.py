@@ -6,7 +6,7 @@ from app.core.ocr import OCREngine
 from app.core.ocr_logger import OCRLogSession
 from app.core.screen import ScreenCapture
 from app.models.config import AppConfig
-from app.models.potential import RollResult
+from app.models.potential import PotentialLine, RollResult
 
 
 class CubeStrategy(ABC):
@@ -27,6 +27,10 @@ class CubeStrategy(ABC):
         self.mouse = mouse
         self.checker = checker
         self.log_session = log_session
+
+    def seed_initial_potential(self, lines: list[PotentialLine]) -> None:
+        """提供啟動時已讀取的潛能，讓策略可重用避免重複 OCR。預設 no-op。"""
+        return
 
     @abstractmethod
     def execute_roll(self, roll_number: int) -> RollResult:
