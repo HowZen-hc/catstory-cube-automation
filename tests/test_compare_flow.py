@@ -93,6 +93,91 @@ def test_keep_or_cancel_todo_does_not_break_cache(strategy, is_better_result):
     assert strategy._last_lines == after
 
 
+def test_click_on_match(strategy, caplog):
+    """Matched=True → click called once, log contains exact format with roll# and coords."""
+    strategy.config.potential_region.x = 100
+    strategy.config.potential_region.y = 200
+    strategy.config.potential_region.width = 40
+    strategy.config.potential_region.height = 60
+    strategy.config.potential_region.is_set.return_value = True
+    strategy.checker.check.return_value = True
+    strategy.mouse.click.return_value = True
+
+    with caplog.at_level("INFO", logger="app.cube.compare_flow"):
+        result = strategy.execute_roll(1)
+
+    assert strategy.mouse.click.call_count == 1
+    assert result.matched is True
+    expected = "#00001 命中 → 點擊 potential_region 中心 (120, 230)"
+    messages = [r.message for r in caplog.records]
+    assert expected in messages, f"expected log line not found. records: {messages}"
+
+
+def test_no_click_on_miss(strategy):
+    """Matched=False → mouse.click never called."""
+    strategy.checker.check.return_value = False
+    strategy.execute_roll(1)
+    strategy.mouse.click.assert_not_called()
+
+
+def test_click_uses_region_center(strategy):
+    """Click coord must be (x + w//2, y + h//2); use odd dims to verify integer division."""
+    strategy.config.potential_region.x = 100
+    strategy.config.potential_region.y = 200
+    strategy.config.potential_region.width = 41
+    strategy.config.potential_region.height = 61
+    strategy.config.potential_region.is_set.return_value = True
+    strategy.checker.check.return_value = True
+    strategy.mouse.click.return_value = True
+
+    strategy.execute_roll(1)
+
+    strategy.mouse.click.assert_called_once_with(120, 230)
+
+
+def test_match_raises_on_click_failure(strategy):
+    """Click returns False → execute_roll raises RuntimeError, _is_better short-circuited."""
+    strategy.config.potential_region.x = 0
+    strategy.config.potential_region.y = 0
+    strategy.config.potential_region.width = 10
+    strategy.config.potential_region.height = 10
+    strategy.config.potential_region.is_set.return_value = True
+    strategy.checker.check.return_value = True
+    strategy.mouse.click.return_value = False
+    strategy._is_better = MagicMock()
+
+    with pytest.raises(RuntimeError, match="命中後點擊失敗"):
+        strategy.execute_roll(1)
+
+    strategy._is_better.assert_not_called()
+
+
+def test_match_returns_rollresult_on_click_success(strategy):
+    """Successful click → normal RollResult(matched=True), no raise."""
+    strategy.config.potential_region.x = 0
+    strategy.config.potential_region.y = 0
+    strategy.config.potential_region.width = 10
+    strategy.config.potential_region.height = 10
+    strategy.config.potential_region.is_set.return_value = True
+    strategy.checker.check.return_value = True
+    strategy.mouse.click.return_value = True
+
+    result = strategy.execute_roll(1)
+
+    assert result.matched is True
+
+
+def test_match_raises_when_region_unset(strategy):
+    """Matched=True with region unset → raise before click, not a silent no-op."""
+    strategy.config.potential_region.is_set.return_value = False
+    strategy.checker.check.return_value = True
+
+    with pytest.raises(RuntimeError, match="potential_region 未設定"):
+        strategy.execute_roll(1)
+
+    strategy.mouse.click.assert_not_called()
+
+
 def test_simple_flow_seed_is_noop():
     """SimpleFlow inherits base no-op seed — must return None and not change execute_roll behavior."""
     s = _make_strategy(SimpleFlowStrategy)
