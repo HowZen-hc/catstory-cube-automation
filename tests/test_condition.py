@@ -166,6 +166,12 @@ class TestParsePotentialLine:
         assert line.attribute == "全屬性%"
         assert line.value == 5
 
+    def test_ocr_fix_all_stats_ya(self):
+        """全壓性 → 全屬性 自動修正"""
+        line = parse_potential_line("全壓性+7%")
+        assert line.attribute == "全屬性%"
+        assert line.value == 7
+
     def test_ocr_fix_int_as_1nt(self):
         """1NT → INT（I↔1 混淆）"""
         line = parse_potential_line("1NT+6%")
