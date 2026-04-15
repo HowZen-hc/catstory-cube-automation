@@ -6,6 +6,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-04-15
+
+### Added
+
+- feat: auto-commit recovery cube potential on match — 還原方塊洗到目標時自動確認配對 (#50)
+
+### Fixed
+
+- fix: map OCR misread `全壓性` to `全屬性` — PaddleOCR 把 `屬` 誤讀為 `壓` 造成未辨識 (#54)
+
+### Changed
+
+- refactor: clarify target-reached dialog copy when no rolling occurred (#53)
+
+### Performance
+
+- perf: cache before-OCR in recovery cube compare flow to avoid redundant OCR calls (#49)
+
+### Tests / CI
+
+- test: expand unit coverage across mouse, compare flow, automation, main window (#51)
+- ci: add Linux test workflow and freeze dev-build lockfile
+- chore: add pytest-cov config and drop dead matcher module
+
+### Docs / Chore
+
+- chore: add pull request template (#52)
+- docs: add recovery-cube-auto-commit-on-match feature docs (requirements / tech-spec / request)
+
 ## [0.5.0] - 2026-04-14
 
 ### Added
