@@ -242,7 +242,14 @@ class MainWindow(QMainWindow):
         if self._worker:
             self._worker.stop()
         QApplication.beep()
-        QMessageBox.information(self, "達成目標", f"達成目標！共洗 {roll_count} 次")
+        if roll_count == 0:
+            message = (
+                "當前潛能已符合目標，未執行任何洗方塊動作。\n"
+                "若畫面停留在使用/取消比較視窗，請手動於遊戲中確認落袋。"
+            )
+        else:
+            message = f"達成目標！共洗 {roll_count} 次"
+        QMessageBox.information(self, "達成目標", message)
 
     def _on_error(self, msg: str) -> None:
         logger.error("自動化錯誤: %s", msg)
