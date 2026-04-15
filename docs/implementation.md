@@ -18,17 +18,12 @@
 - [x] 封裝 PaddleOCR，設定繁體中文
 - 驗證：對遊戲截圖進行 OCR，確認辨識結果
 
-### 2.3 滑鼠控制（mouse.py）
+### 2.3 滑鼠/鍵盤控制（mouse.py）
 
-- [x] 封裝 pyautogui，提供 move、click、delay
-- 驗證：自動移動滑鼠到每指定座標並點擊
+- [x] Windows SendInput API：空白鍵、滑鼠左鍵點擊、前景視窗保護
+- 驗證：無頭測試以 mock `ctypes.windll` 注入假物件，驗證呼叫順序與回傳值
 
-### 2.4 模板匹配（matcher.py）
-
-- [x] OpenCV matchTemplate 找按鈕位置
-- 驗證：對遊戲截圖匹配按鈕模板，回傳座標
-
-### 2.5 條件判斷（condition.py）
+### 2.4 條件判斷（condition.py）
 
 - [x] 解析 OCR 文字，提取潛能屬性與數值
 - [x] 比對使用者設定的目標條件
