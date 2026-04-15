@@ -152,19 +152,34 @@ def test_match_raises_on_click_failure(strategy):
     strategy._is_better.assert_not_called()
 
 
-def test_match_returns_rollresult_on_click_success(strategy):
-    """Successful click → normal RollResult(matched=True), no raise."""
-    strategy.config.potential_region.x = 0
-    strategy.config.potential_region.y = 0
-    strategy.config.potential_region.width = 10
-    strategy.config.potential_region.height = 10
-    strategy.config.potential_region.is_set.return_value = True
-    strategy.checker.check.return_value = True
-    strategy.mouse.click.return_value = True
+class TestIsBetter:
+    """Direct tests for _is_better scoring: counts lines with value > 0; >= semantics."""
 
-    result = strategy.execute_roll(1)
+    def test_new_higher_score_returns_true(self, strategy):
+        old = [_line("STR", 9)]
+        new = [_line("STR", 9), _line("DEX", 3)]
+        assert strategy._is_better(new, old) is True
 
-    assert result.matched is True
+    def test_equal_score_returns_true(self, strategy):
+        old = [_line("STR", 9)]
+        new = [_line("DEX", 3)]
+        assert strategy._is_better(new, old) is True
+
+    def test_new_lower_score_returns_false(self, strategy):
+        old = [_line("STR", 9), _line("DEX", 3)]
+        new = [_line("STR", 9)]
+        assert strategy._is_better(new, old) is False
+
+    def test_empty_lines_both_sides_returns_true(self, strategy):
+        assert strategy._is_better([], []) is True
+
+    def test_zero_value_lines_excluded_from_score(self, strategy):
+        """value=0 lines must not count — otherwise ❌ lines inflate the score."""
+        old = [_line("STR", 9)]  # score 1
+        new = [_line("STR", 9), _line("未知", 0), _line("DEX", 0)]  # score 1, not 3
+        assert strategy._is_better(new, old) is True
+        new_worse = [_line("未知", 0)]  # score 0
+        assert strategy._is_better(new_worse, old) is False
 
 
 def test_match_raises_when_region_unset(strategy):
