@@ -91,7 +91,9 @@ class AutomationWorker(QThread):
                 RollResult(roll_number=0, lines=lines, matched=matched)
             )
             if matched:
-                self.status_changed.emit("當前潛能已符合目標條件，無需洗方塊")
+                self.status_changed.emit(
+                    "當前潛能已符合目標，未執行洗方塊；若畫面停在比較視窗請手動確認"
+                )
                 self.target_reached.emit(0)
                 return
             # 將啟動 OCR 結果 seed 給策略，讓 CompareFlow 省下第 1 圈的 before OCR。

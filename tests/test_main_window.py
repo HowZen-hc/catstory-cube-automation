@@ -46,6 +46,35 @@ class TestOnTargetReached:
         ):
             window._on_target_reached(0)
 
+    def test_roll_count_zero_shows_manual_confirm_hint(self, window):
+        """roll_count=0 (initial match, no click fired) must warn the user
+        to manually confirm in-game if the before/after dialog is still up."""
+        window._worker = None
+
+        with patch.object(QApplication, "beep"), patch(
+            "app.gui.main_window.QMessageBox"
+        ) as mock_msgbox:
+            window._on_target_reached(0)
+
+        _args, _ = mock_msgbox.information.call_args
+        message = _args[2]
+        assert "未執行任何洗方塊動作" in message
+        assert "請手動" in message
+
+    def test_roll_count_positive_shows_standard_message(self, window):
+        """roll_count>0 (rolled and matched) keeps the original success copy,
+        no manual-confirm hint (script already clicked)."""
+        window._worker = None
+
+        with patch.object(QApplication, "beep"), patch(
+            "app.gui.main_window.QMessageBox"
+        ) as mock_msgbox:
+            window._on_target_reached(3)
+
+        _args, _ = mock_msgbox.information.call_args
+        message = _args[2]
+        assert message == "達成目標！共洗 3 次"
+
 
 class TestGpuSectionRemoved:
     """R5 AC-1..AC-5 / Signal 7.1.a / 7.1.b: GPU section must be absent from UI
