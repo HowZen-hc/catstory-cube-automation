@@ -4,7 +4,7 @@
 
 ```
 app/
-├── core/          # 底層工具：截圖、OCR、滑鼠、模板匹配
+├── core/          # 底層工具：截圖、OCR、滑鼠
 ├── cube/          # 方塊策略：不同方塊的洗潛能流程
 ├── gui/           # PyQt6 介面
 ├── models/        # 資料模型與設定
@@ -17,8 +17,7 @@ app/
 |------|------|------|
 | screen.py | ScreenCapture | mss 螢幕擷取，回傳 numpy array |
 | ocr.py | OCREngine | PaddleOCR 封裝，繁體中文辨識 |
-| mouse.py | MouseController | pyautogui 滑鼠移動與點擊 |
-| matcher.py | TemplateMatcher | OpenCV 模板匹配，定位按鈕位置 |
+| mouse.py | MouseController | Windows SendInput 鍵盤與滑鼠輸入 |
 | condition.py | ConditionChecker | 判斷 OCR 結果是否符合目標條件 |
 | automation.py | AutomationWorker | QThread 主迴圈，協調所有模組 |
 
@@ -69,7 +68,6 @@ OCR 讀取當前潛能 → 使用方塊 → 等待結果 → OCR 讀取新潛能
 
 ```
 [螢幕] → ScreenCapture → numpy array
-       → TemplateMatcher → 按鈕座標
        → OCREngine → 文字結果
        → ConditionChecker → 是否達標
        → CubeStrategy → 決定下一步

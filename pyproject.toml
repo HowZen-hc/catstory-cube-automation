@@ -17,5 +17,23 @@ dependencies = [
 dev = [
     "pyinstaller>=6.19.0",
     "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
     "ruff>=0.15.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=app --cov-report=term-missing:skip-covered --cov-fail-under=80"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@overload",
 ]
