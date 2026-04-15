@@ -6,7 +6,7 @@ import urllib.request
 
 logger = logging.getLogger(__name__)
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 _GITHUB_REPO = "HowZen-hc/catstory-cube-automation"
 RELEASE_API_URL = f"https://api.github.com/repos/{_GITHUB_REPO}/releases/latest"
