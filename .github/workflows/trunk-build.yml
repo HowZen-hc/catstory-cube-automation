@@ -1,8 +1,8 @@
-name: Dev Build
+name: Trunk Build
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
 
 jobs:
   build:
@@ -24,6 +24,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CubeAutomation-dev-${{ github.sha }}
+          name: CubeAutomation-trunk-${{ github.sha }}
           path: dist/CubeAutomation/
           retention-days: 7
